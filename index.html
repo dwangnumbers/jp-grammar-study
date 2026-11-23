@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JP Grammar Study — 文法</title>
+  <meta name="description" content="Learn Japanese grammar from the basics to classical Japanese with WaniKani-style spaced repetition. Pass each review by writing your own correct sentence.">
+  <meta name="theme-color" content="#111115">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ff00aa'/%3E%3Cstop offset='1' stop-color='%23aa00ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='45' font-size='38' text-anchor='middle' fill='white' font-family='sans-serif'%3E%E6%96%87%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="vendor/wanakana/wanakana.min.js" defer></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="inner">
+      <a class="brand" href="#/"><span class="logo">文</span><span>Grammar Study <small>文法</small></span></a>
+      <nav class="nav" id="nav">
+        <a href="#/" data-route="dashboard">Dashboard</a>
+        <a href="#/levels" data-route="levels">Levels</a>
+        <a href="#/type/particle" class="t-particle" data-route="type/particle">Particles</a>
+        <a href="#/type/conjugation" class="t-conjugation" data-route="type/conjugation">Conjugations</a>
+        <a href="#/type/phrase" class="t-phrase" data-route="type/phrase">Phrases</a>
+        <a href="#/settings" data-route="settings">Settings</a>
+      </nav>
+      <form class="search-form" id="search-form" role="search"><input type="search" id="search-input" placeholder="Search grammar…" aria-label="Search grammar"></form>
+      <div class="header-actions" id="header-actions"></div>
+    </div>
+  </header>
+  <main id="app"><div class="empty-state"><div class="big">文</div>Loading…</div></main>
+  <noscript><p class="center">This app needs JavaScript.</p></noscript>
+</body>
+</html>

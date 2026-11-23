@@ -1,0 +1,14 @@
+{
+  "name": "jp-grammar-study",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Japanese grammar spaced-repetition app in the WaniKani format",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run.js",
+    "serve": "python3 -m http.server 8000"
+  },
+  "devDependencies": {
+    "kuromoji": "0.1.2"
+  }
+}

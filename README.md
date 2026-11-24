@@ -1,6 +1,6 @@
 # 文法 JP Grammar Study
 
-A Japanese grammar spaced-repetition app in the WaniKani format. It covers 392 grammar points over 60 levels, starting with は and です and ending with classical Japanese.
+A Japanese grammar spaced-repetition app in the WaniKani format. It covers 402 grammar points over 60 levels, starting with は and です and ending with classical Japanese.
 
 WaniKani teaches radicals, kanji and vocabulary, and you pass a review by typing the meaning and the reading. This app teaches **particles**, **conjugations** and **phrases**. To pass a review, **you respond to a context**: either you reply to a line in a conversation, or you write the missing sentence in a passage. Your answer must use the grammar point and the required words.
 
@@ -22,6 +22,7 @@ The parts of WaniKani that are copied directly:
 - **Wrong-answer penalty.** `new stage = current − ceil(wrong ÷ 2) × (2 if Guru or higher, else 1)`, and an item never drops below Apprentice I.
 - **Unlocks.** An item unlocks once every item it is built from reaches Guru. For example, 〜てもいい needs the て-form and も.
 - **Level-ups.** You go up a level when 90% of the current level's conjugations reach Guru.
+- **Verb groups.** An early item (level 2) teaches how to tell godan, ichidan and irregular (する・来る) verbs apart. The forms that conjugate differently by group are split into two items, one for **godan** verbs and one for **ichidan verbs + する/来る**: the て-form, た-form, ない-form, potential, volitional, imperative, passive, causative and ば-form. The ichidan version of the ば-form also covers い-adjectives. Each version's reviews only accept a verb from its own group; using the form with a verb from the other group shakes. Forms that work the same for every group, like 〜ます and 〜たい, stay as one item.
 - **Sessions.** Lessons come in batches of 5. Each item shows **Grammar, Meaning, Pronunciation and Examples** as dropdown sections on one page. **Next** goes straight to the next item, and a section you collapse stays collapsed. A quiz follows the batch. Reviews put missed items back in the queue, offer Wrap up, and end with a summary.
 - **Pages and extras.** Dashboard, review forecast, item spread, critical-condition items, level and type pages, item pages with notes, search, and Extra Study.
 
@@ -91,7 +92,7 @@ npm test
 The test suite checks the following:
 
 - **Curriculum integrity.** IDs are unique, every part exists at the same level or lower, there are no dependency cycles, and every level has conjugations.
-- **Examples.** All 784 example sentences pass their own item's checker.
+- **Examples.** All 804 example sentences pass their own item's checker.
 - **Review contexts.** Every item has one, and every sample answer passes both the grammar check and the required-word check.
 - **Checker cases.** Hand-written correct sentences must be accepted and incorrect ones rejected.
 - **SRS engine.** The penalty math, intervals and hour rounding behave like WaniKani's. A simulated perfect run reaches level 60, and every item eventually unlocks.

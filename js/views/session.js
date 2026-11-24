@@ -6,10 +6,10 @@ import { availableLessons, availableReviews, startItem, applyReview, refresh, SR
 import { loadChecker, getChecker } from '../tokenizer.js';
 import { gradeWithAI } from '../ai.js';
 import { speak, canSpeak } from '../speech.js';
-import { detailSections, bindSpeak, tile, STAGE_COLORS, TYPE_COLORS, renderJa, partsHTML } from './common.js';
+import { detailSections, bindSpeak, tile, STAGE_COLORS, TYPE_COLORS, renderJa, partsHTML, examplesHTML } from './common.js';
 import { recentMistakes } from './dashboard.js';
 
-const TRIVIAL_SHAKES = new Set(['empty', 'latin', 'notjp', 'copy', 'bare', 'short']);
+const TRIVIAL_SHAKES = new Set(['empty', 'latin', 'notjp', 'copy', 'bare', 'short', 'word']);
 
 function enterSession() { document.body.classList.add('in-session'); window.scrollTo(0, 0); }
 export function leaveSession() { document.body.classList.remove('in-session'); }
@@ -27,63 +27,75 @@ export function renderLessons(root) {
   }
   enterSession();
   loadChecker();
-  const TABS = [
-    { key: 'grammar', label: 'Grammar' },
-    { key: 'meaning', label: 'Meaning' },
-    { key: 'pronunciation', label: 'Pronunciation' },
-    { key: 'examples', label: 'Examples' },
-  ];
+  // WaniKani-style: every section of the item is on one page as a dropdown,
+  // and Next moves straight to the next item. Collapsed sections stay collapsed.
+  const SECTIONS_KEY = 'jp-grammar-study:lesson-closed';
+  let closed;
+  try { closed = new Set(JSON.parse(localStorage.getItem(SECTIONS_KEY)) || []); } catch { closed = new Set(); }
   let idx = 0;
-  let tab = 0;
 
   const draw = () => {
     const it = batch[idx];
-    const color = TYPE_COLORS[it.type];
-    const body = {
-      grammar: `
-        <div class="section"><h3>${TYPES[it.type].label}</h3>
-          <p class="explain">${it.type === 'particle' ? 'A particle — one of the building blocks of Japanese sentences.' : it.type === 'conjugation' ? 'A conjugation — a form built on verb, adjective or noun stems.' : 'A phrase — a grammar pattern combining particles and conjugations.'}</p>
-          <div class="structure" lang="ja">${esc(it.structure)}</div></div>
-        <div class="section"><h3>Built from</h3>${partsHTML(state, it)}</div>`,
-      meaning: detailSections(state, it, { which: ['meaning'] }),
-      pronunciation: detailSections(state, it, { which: ['pronunciation'] }),
-      examples: detailSections(state, it, { which: ['examples'] }),
-    }[TABS[tab].key];
-    const last = idx === batch.length - 1 && tab === TABS.length - 1;
+    const typeBlurb = it.type === 'particle' ? 'A particle — one of the building blocks of Japanese sentences.'
+      : it.type === 'conjugation' ? 'A conjugation — a form built on verb, adjective or noun stems.'
+        : 'A phrase — a grammar pattern combining particles and conjugations.';
+    const sections = [
+      { key: 'grammar', label: 'Grammar', html: `
+        <p class="explain">${typeBlurb}</p>
+        <div class="structure" lang="ja">${esc(it.structure)}</div>
+        <h4>Built from</h4>${partsHTML(state, it)}` },
+      { key: 'meaning', label: 'Meaning', html: `
+        <dl class="kv"><dt>Primary</dt><dd><b>${esc(it.meaning)}</b></dd>
+        ${it.also.length ? `<dt>Also</dt><dd>${it.also.map(esc).join(', ')}</dd>` : ''}</dl>
+        <p class="explain">${esc(it.explain)}</p>` },
+      { key: 'pronunciation', label: 'Pronunciation', html: `
+        <div class="row" style="align-items:center;gap:12px">
+          ${canSpeak() ? `<button class="speak" data-say="${esc(it.reading)}" title="Listen" aria-label="Listen" style="margin:0">🔊</button>` : ''}
+          <div><div class="reading-big" lang="ja">${esc(it.reading)}</div><div class="muted">${esc(it.romaji)}</div></div>
+        </div>` },
+      { key: 'examples', label: 'Examples', html: examplesHTML(it) },
+    ];
+    const last = idx === batch.length - 1;
     root.innerHTML = `
       <div class="session">
         <div class="session-top"><a class="home" href="#/" title="Dashboard">⌂</a><span>Lessons</span>
           <span class="stats"><span><b>${availableLessons(state).length}</b> in queue</span></span></div>
         <div class="q-banner ${it.type}"><span class="level-tag">Level ${it.level} · ${TYPES[it.type].label}</span>
           <div class="grammar" lang="ja">${esc(it.grammar)}</div><div class="lesson-meaning">${esc(it.meaning)}</div></div>
-        <div class="lesson-tabs" style="--tabc:${color}">${TABS.map((t, i) => `<button data-tab="${i}" class="${i === tab ? 'active' : ''}">${t.label}</button>`).join('')}</div>
-        <div class="lesson-body">${body}</div>
+        <div class="lesson-body" style="--tabc:${TYPE_COLORS[it.type]}">
+          ${sections.map((sec) => `
+            <details class="dropdown" data-sec="${sec.key}" ${closed.has(sec.key) ? '' : 'open'}>
+              <summary>${sec.label}</summary>
+              <div class="dropdown-body">${sec.html}</div>
+            </details>`).join('')}
+        </div>
         <div class="lesson-footer">
-          <button class="btn" id="prev" ${idx === 0 && tab === 0 ? 'disabled' : ''}>← Back</button>
+          <button class="btn" id="prev" ${idx === 0 ? 'disabled' : ''}>← Back</button>
           <div class="lesson-chips">${batch.map((b, i) => `<button class="${b.type} ${i === idx ? 'active' : ''}" data-item="${i}" lang="ja">${esc(b.grammar)}</button>`).join('')}</div>
           <button class="btn ${last ? 'primary' : ''}" id="next">${last ? 'Start quiz →' : 'Next →'}</button>
         </div>
       </div>`;
     bindSpeak(root);
-    if (TABS[tab].key === 'pronunciation' && canSpeak()) speak(it.reading);
-    root.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => { tab = +b.dataset.tab; draw(); }));
-    root.querySelectorAll('[data-item]').forEach((b) => b.addEventListener('click', () => { idx = +b.dataset.item; tab = 0; draw(); }));
+    root.querySelectorAll('details.dropdown').forEach((d) => d.addEventListener('toggle', () => {
+      if (d.open) closed.delete(d.dataset.sec); else closed.add(d.dataset.sec);
+      try { localStorage.setItem(SECTIONS_KEY, JSON.stringify([...closed])); } catch {}
+    }));
+    root.querySelectorAll('[data-item]').forEach((b) => b.addEventListener('click', () => { idx = +b.dataset.item; draw(); }));
     root.querySelector('#prev').addEventListener('click', back);
     root.querySelector('#next').addEventListener('click', forward);
   };
   const forward = () => {
-    if (tab < TABS.length - 1) tab++;
-    else if (idx < batch.length - 1) { idx++; tab = 0; }
+    if (idx < batch.length - 1) idx++;
     else { teardown(); cleanup = runQuiz(root, batch); return; }
     draw();
+    window.scrollTo(0, 0);
   };
   const back = () => {
-    if (tab > 0) tab--;
-    else if (idx > 0) { idx--; tab = TABS.length - 1; }
-    draw();
+    if (idx > 0) { idx--; draw(); window.scrollTo(0, 0); }
   };
   const onKey = (e) => {
     if (e.target.matches('input, textarea')) return;
+    if (e.target.matches('summary') && (e.key === 'Enter' || e.key === ' ')) return; // toggles the dropdown
     if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); forward(); }
     else if (e.key === 'ArrowLeft' || e.key === 'Backspace') { e.preventDefault(); back(); }
   };
@@ -174,6 +186,7 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
       <div class="session-progress"><span id="s-bar" style="width:0"></span></div>
       <div class="q-banner" id="banner"><span class="level-tag" id="lvl"></span><div class="grammar" id="grammar" lang="ja"></div></div>
       <div class="q-prompt" id="prompt"></div>
+      <div class="q-context" id="context"></div>
       <div class="q-answer">
         <div class="answer-box" id="abox">
           <button class="ime-toggle" id="ime" title="Romaji → kana input (toggle)">あ</button>
@@ -232,7 +245,10 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
     $('banner').className = `q-banner ${it.type}`;
     $('grammar').textContent = it.grammar;
     $('lvl').textContent = `Level ${it.level}`;
-    $('prompt').innerHTML = `${TYPES[it.type].label} <b>Sentence</b>`;
+    const pr = it.prompt;
+    $('prompt').innerHTML = `${TYPES[it.type].label} <b>${pr && pr.kind === 'passage' ? 'Fill in the blank' : 'Reply'}</b>`;
+    $('context').innerHTML = contextHTML(it);
+    input.placeholder = pr && pr.kind === 'passage' ? 'Write the missing sentence…' : 'Write your reply…';
     input.value = '';
     input.readOnly = false;
     box.className = 'answer-box';
@@ -251,7 +267,7 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
     const text = input.value.trim();
     const item = current;
     const checker = getChecker();
-    let res = checker.check(item, text, { allowCopies: settings.allowExampleCopies });
+    let res = checker.check(item, text, { allowCopies: settings.allowExampleCopies, words: item.prompt ? item.prompt.words : [] });
     let source = 'local';
     const useAI = settings.ai.enabled && settings.ai.apiKey;
     if (useAI && !(res.status === 'shake' && TRIVIAL_SHAKES.has(res.code))) {
@@ -261,7 +277,7 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
       $('status').innerHTML = '<span class="spinner"></span>Claude is grading your sentence…';
       try {
         aborter = new AbortController();
-        const ai = await gradeWithAI({ apiKey: settings.ai.apiKey, model: settings.ai.model, item, sentence: text, signal: aborter.signal });
+        const ai = await gradeWithAI({ apiKey: settings.ai.apiKey, model: settings.ai.model, item, prompt: item.prompt, sentence: text, signal: aborter.signal });
         if (current !== item) return;
         source = 'ai';
         res = { status: ai.verdict === 'missing' ? 'shake' : ai.verdict, message: ai.feedback, correction: ai.correction, local: res };
@@ -336,7 +352,8 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
     qi.innerHTML = `
       <div class="item-header"><div class="big ${current.type}" lang="ja">${esc(current.grammar)}</div>
         <div><div class="title">${esc(current.meaning)}</div><div class="sub"><a href="#/item/${esc(current.id)}" target="_blank">Open item page ↗</a></div></div></div>
-      ${lastResult && lastResult.text ? `<div class="section"><h3>Your sentence</h3><div class="example"><span></span><div class="ja answer-echo" lang="ja" style="--hl:${TYPE_COLORS[current.type]}">${renderJa(lastResult.text, current, { furigana: false })}</div></div></div>` : ''}
+      ${current.prompt ? `<div class="section"><h3>Example answer</h3><div class="example"><span></span><div class="ja answer-echo" lang="ja" style="--hl:${TYPE_COLORS[current.type]}">${renderJa(current.prompt.answer, current)}</div></div></div>` : ''}
+      ${lastResult && lastResult.text ? `<div class="section"><h3>Your answer</h3><div class="example"><span></span><div class="ja answer-echo" lang="ja" style="--hl:${TYPE_COLORS[current.type]}">${renderJa(lastResult.text, current, { furigana: false })}</div></div></div>` : ''}
       ${detailSections(st, current, { which: ['meaning', 'pronunciation', 'examples', 'parts'] })}`;
     bindSpeak(qi);
   }
@@ -410,6 +427,23 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
 
   nextItem();
   return cleanup;
+}
+
+// ---------------------------------------------------------------- review context
+function contextHTML(item) {
+  const pr = item.prompt;
+  if (!pr) return '';
+  const ja = (t) => renderJa(t, null, { highlight: false });
+  const words = `<div class="ctx-words">Use: ${pr.words.map((w) => `<span class="word" lang="ja">${esc(w.split('|')[0])}</span>`).join('')}</div>`;
+  const body = pr.kind === 'passage'
+    ? `<div class="ctx-passage"><div class="ja" lang="ja">${pr.ja.split('＿').map(ja).join('<span class="blank">\u3000\u3000\u3000\u3000</span>')}</div>
+         <div class="en">${esc(pr.en).replace('___', '<span class="blank-en">___</span>')}</div></div>`
+    : `<div class="ctx-dialogue">${pr.lines.map((l) => `
+         <div class="line"><span class="who">${esc(l.who)}</span>
+           <div class="bubble"><div class="ja" lang="ja">${ja(l.ja)}</div><div class="en">${esc(l.en)}</div></div></div>`).join('')}
+         <div class="line you"><span class="who">You</span><div class="bubble"><span class="dots">…</span></div></div></div>`;
+  return `<div class="ctx"><div class="ctx-scene">${esc(pr.scene)}</div>${body}
+    <div class="ctx-task"><b>${esc(pr.task)}</b></div>${words}</div>`;
 }
 
 // ---------------------------------------------------------------- summary

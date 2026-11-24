@@ -15,25 +15,30 @@ export const AI_MODELS = [
 ];
 
 const SYSTEM = `You are an expert Japanese teacher grading answers in a grammar spaced-repetition app.
-The learner was shown one grammar point and had to write an ORIGINAL Japanese sentence that uses it.
+The learner was shown one grammar point and a context — either a conversation they must reply to, or a passage with one missing sentence they must fill in — plus a task in English and a list of required words.
 
-Grade the sentence:
-- "correct": the sentence is grammatical Japanese a native speaker would accept, AND it uses the target grammar point with its correct meaning/function and the correct connecting form. Minor stylistic awkwardness, unusual-but-valid vocabulary, all-hiragana writing, and casual or polite register are all fine. Be fair, not pedantic.
-- "incorrect": the sentence attempts the target grammar but has a real grammatical error (wrong conjugation, wrong connection, wrong particle, wrong meaning/usage of the grammar point, ungrammatical elsewhere).
-- "missing": the sentence does not use the target grammar point at all (or uses a different grammar point instead).
+Grade the learner's answer:
+- "correct": the answer is grammatical Japanese a native speaker would accept, it uses the target grammar point with its correct meaning/function and connecting form, it fits the context and does what the task asks, and it uses each required word (any conjugation, kanji or kana). Minor stylistic awkwardness, unusual-but-valid vocabulary, all-hiragana writing, and casual or polite register are all fine unless the context clearly calls for a register. Be fair, not pedantic.
+- "incorrect": the answer attempts the target grammar but has a real grammatical error (wrong conjugation, connection, particle, or meaning/usage of the grammar point), or it doesn't fit the context or doesn't do what the task asks.
+- "missing": the answer does not use the target grammar point at all (or uses a different grammar point instead), or leaves out a required word.
 For classical (文語) grammar points, judge by classical grammar rules; mixing a classical form into an otherwise modern sentence is acceptable if the form itself is used correctly.
 
 Reply with ONLY a JSON object, no markdown:
-{"verdict":"correct"|"incorrect"|"missing","feedback":"one or two short sentences in English explaining the verdict","correction":"a corrected version of the learner's sentence if incorrect, otherwise an empty string"}`;
+{"verdict":"correct"|"incorrect"|"missing","feedback":"one or two short sentences in English explaining the verdict","correction":"a corrected version of the learner's answer if incorrect, otherwise an empty string"}`;
 
-export async function gradeWithAI({ apiKey, model, item, sentence, signal }) {
+export async function gradeWithAI({ apiKey, model, item, prompt: ctx, sentence, signal }) {
   const prompt = [
     `Grammar point: ${item.grammar}`,
     `Type: ${item.type}`,
     `Meaning: ${item.meaning}${item.also && item.also.length ? ` (also: ${item.also.join('; ')})` : ''}`,
     `Formation: ${item.structure}`,
     item.classical ? 'This is a classical (文語) grammar point.' : '',
-    `Learner's sentence: ${sentence}`,
+    ctx ? `Context (${ctx.kind === 'passage' ? 'passage — the learner writes the sentence at ＿' : 'conversation — the learner writes the next line'}): ${ctx.scene}` : '',
+    ctx && ctx.kind === 'passage' ? `Passage: ${ctx.ja}\n(English: ${ctx.en})` : '',
+    ctx && ctx.kind === 'dialogue' ? ctx.lines.map((l) => `${l.who}: ${l.ja} (${l.en})`).join('\n') : '',
+    ctx ? `Task: ${ctx.task}` : '',
+    ctx ? `Required words: ${ctx.words.map((w) => w.replace(/\|/g, ' or ')).join(', ')}` : '',
+    `Learner's answer: ${sentence}`,
   ].filter(Boolean).join('\n');
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {

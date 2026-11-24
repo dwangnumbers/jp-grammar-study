@@ -7,7 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { ITEMS, BY_ID, MAX_LEVEL } from '../js/data/index.js';
 import { createChecker, parseSpec } from '../js/checker.js';
-import { NEGATIVE, POSITIVE } from './cases.js';
+import { NEGATIVE, POSITIVE, WORD_CASES } from './cases.js';
 import { runSrsTests } from './srs.test.js';
 
 const require = createRequire(import.meta.url);
@@ -65,10 +65,28 @@ for (const it of ITEMS.filter(inRange)) {
     if (r.status !== 'correct') fail(`L${it.level} ${it.id} example rejected (${r.status}): ${ja}\n    ${r.message}\n    ${dump(r.tokens || checker.tokenize(ja))}`);
   }
 }
+// review prompts: every item has one, and its model answer passes
+for (const it of ITEMS.filter(inRange)) {
+  const pr = it.prompt;
+  if (!pr) { fail(`L${it.level} ${it.id}: no review prompt`); continue; }
+  for (const k of ['scene', 'task', 'answer']) if (!pr[k]) fail(`${it.id}: prompt missing ${k}`);
+  if (!pr.words.length) fail(`${it.id}: prompt has no required words`);
+  if (pr.kind === 'passage') {
+    if ((pr.ja.match(/＿/g) || []).length !== 1) fail(`${it.id}: passage needs exactly one ＿ blank`);
+    if (!pr.en.includes('___')) fail(`${it.id}: passage translation needs a ___ blank`);
+  } else if (!pr.lines.length || pr.lines.some((l) => !l.who || !l.ja || !l.en)) fail(`${it.id}: bad dialogue lines`);
+  const r = checker.check(it, pr.answer, { allowCopies: true, words: pr.words });
+  if (r.status !== 'correct') fail(`L${it.level} ${it.id} model answer rejected (${r.status}): ${pr.answer}\n    ${r.message}\n    ${dump(r.tokens || checker.tokenize(pr.answer))}`);
+}
 for (const [id, s, want] of NEGATIVE) {
   const it = BY_ID.get(id); if (!it || !inRange(it)) continue;
   const r = checker.check(it, s);
   if (r.status === 'correct' || (want && r.status !== want)) fail(`negative case accepted/mismatched for ${id}: ${s} → ${r.status} (${r.message})\n    ${dump(r.tokens)}`);
+}
+for (const [id, s, words] of WORD_CASES) {
+  const missing = checker.missingWords(words.split(' '), s);
+  const want = id === 'has' ? [] : [id];
+  if (JSON.stringify(missing) !== JSON.stringify(want)) fail(`required words: "${s}" with [${words}] → missing ${JSON.stringify(missing)}, want ${JSON.stringify(want)}`);
 }
 for (const [id, s] of POSITIVE) {
   const it = BY_ID.get(id); if (!it || !inRange(it)) continue;

@@ -41,7 +41,7 @@ export default {
       structure: 'Verb / Adj (已然形) + ども',
       explain: 'The classical concessive "although". In modern Japanese it survives in fixed literary rhythms: 行けども行けども (on and on, however far one goes).',
       examples: [['行けども行けども、砂漠は続いていた。', 'However far we went, the desert went on.'], ['呼べども、答える者はいなかった。', 'I called out, but no one answered.']],
-      check: ['#ども', 'ども@Vb,V,Aux'] }),
+      check: ['#ども', 'ども@Vb,V,Aux', '[えけげせてねべめれ]ども'] }),
     C({ ...K, id: 'nu-tsu-perfective', grammar: '〜ぬ / 〜つ (perfective)', meaning: 'Has (come to) … (completion)', reading: 'ぬ / つ', romaji: 'nu / tsu',
       structure: 'Verb (連用形) + ぬ / つ',
       explain: 'Classical perfective auxiliaries: ぬ for natural changes (秋来ぬ, autumn has come), つ for deliberate acts. Don\'t confuse perfective ぬ (after the 連用形) with negative ぬ (after the 未然形): 来ぬ read きぬ means "has come", read こぬ "does not come".',

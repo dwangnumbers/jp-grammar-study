@@ -4,6 +4,14 @@ import stage3 from './stage3.js';
 import stage4 from './stage4.js';
 import stage5 from './stage5.js';
 import stage6 from './stage6.js';
+import prompts1 from './prompts1.js';
+import prompts2 from './prompts2.js';
+import prompts3 from './prompts3.js';
+import prompts4 from './prompts4.js';
+import prompts5 from './prompts5.js';
+import prompts6 from './prompts6.js';
+
+export const PROMPTS = { ...prompts1, ...prompts2, ...prompts3, ...prompts4, ...prompts5, ...prompts6 };
 
 // WaniKani-style level groups
 export const STAGES = [
@@ -26,7 +34,7 @@ export const MAX_LEVEL = 60;
 export const ITEMS = [];
 for (const stage of [stage1, stage2, stage3, stage4, stage5, stage6]) {
   for (const [level, items] of Object.entries(stage)) {
-    items.forEach((it, i) => ITEMS.push({ ...it, level: Number(level), order: i }));
+    items.forEach((it, i) => ITEMS.push({ ...it, level: Number(level), order: i, prompt: PROMPTS[it.id] || null }));
   }
 }
 ITEMS.sort((a, b) => a.level - b.level || TYPES[a.type].order - TYPES[b.type].order || a.order - b.order);

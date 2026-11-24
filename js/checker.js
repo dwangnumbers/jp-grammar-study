@@ -343,14 +343,54 @@ export function createChecker(tokenizer, options = {}) {
   };
   const ctx = { isPotentialVerb };
 
+  // ---- required words ("use 窓 and 開ける")
+  const toHira = (s) => (s || '').replace(/[\u30a1-\u30f6]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+  const readingOf = (s) => toHira(tokenizer.tokenize(s).map((t) => (t.reading && t.reading !== '*' ? t.reading : t.surface_form)).join(''));
+  const KANJI = /[\u3400-\u9fff々]/;
+  const wordCache = new Map();
+  const wordInfo = (w) => {
+    if (!wordCache.has(w)) {
+      const alts = w.split('|').map((a) => {
+        const surface = a.replace(/する$/, '') || a;
+        const toks = tokenizer.tokenize(surface);
+        const last = toks[toks.length - 1];
+        const inflects = !!last && (isVerb(last) || isAdj(last));
+        const reading = readingOf(surface);
+        return {
+          surface, reading, inflects,
+          // the part up to the last kanji, so classical forms still match (忘れる → 忘る, 伝える → 伝へ)
+          stem: inflects && surface.length > 1 ? surface.slice(0, Math.max(...[...surface].map((c, i) => (KANJI.test(c) ? i + 1 : 0)))) || surface.slice(0, -1) : null,
+          rstem: inflects && reading.length > 2 ? reading.slice(0, -1) : null,
+        };
+      });
+      wordCache.set(w, alts);
+    }
+    return wordCache.get(w);
+  };
+  function hasWord(w, text, tokens) {
+    const textReading = toHira(tokens.map((t) => (t.reading && t.reading !== '*' ? t.reading : t.surface_form)).join(''));
+    const hiraText = toHira(text);
+    return wordInfo(w).some((a) => {
+      if (text.includes(a.surface) || hiraText.includes(a.reading)) return true;
+      if (textReading.includes(a.reading)) return true;
+      if (tokens.some((t) => t.basic_form === a.surface || (t.basic_form && t.basic_form !== '*' && readingOf(t.basic_form) === a.reading))) return true;
+      if (a.stem && KANJI.test(a.stem) && text.includes(a.stem)) return true;
+      if (a.rstem && (textReading.includes(a.rstem) || hiraText.includes(a.rstem))) return true;
+      return false;
+    });
+  }
+  const missingWords = (words, text, tokens) => (words || []).filter((w) => !hasWord(w, text, tokens));
+
   function check(item, sentence, opts = {}) {
     const text = normalize(sentence);
     const bare = stripPunct(sentence);
     if (!text) return { status: 'shake', code: 'empty', message: 'Type a Japanese sentence.' };
     if (LATIN_RE.test(text)) return { status: 'shake', code: 'latin', message: 'Your answer contains Latin letters. Type it in Japanese (turn on あ for romaji → kana).' };
     if (!JP_RE.test(text)) return { status: 'shake', code: 'notjp', message: 'Type your sentence in Japanese.' };
+    // copying a lesson example only counts when there are no required words
+    // (with required words, the context already forces an answer of your own)
     const examples = (item.examples || []).map((e) => stripPunct(Array.isArray(e) ? e[0] : e.ja));
-    if (!opts.allowCopies && examples.includes(bare)) return { status: 'shake', code: 'copy', message: "That's one of the lesson's example sentences — write your own." };
+    if (!opts.allowCopies && !(opts.words && opts.words.length) && examples.includes(bare)) return { status: 'shake', code: 'copy', message: "That's one of the lesson's example sentences — write your own." };
     if (stripPunct(item.grammar.replace(/[〜～]/g, '')) === bare) return { status: 'shake', code: 'bare', message: 'Write a whole sentence, not just the grammar point.' };
 
     const tokens = tokenize(text);
@@ -358,6 +398,12 @@ export function createChecker(tokenizer, options = {}) {
     if (bare.length < (opts.minLength || 4) || content.length < 3) return { status: 'shake', code: 'short', message: 'Write a full sentence (at least a few words).' };
     const unknown = content.filter((t) => t.word_type === 'UNKNOWN' && !/^[゠-ヿ]+$/.test(t.surface_form));
     if (unknown.length && unknown.length / content.length > 0.34) return { status: 'shake', code: 'parse', message: "I can't parse this as Japanese. Check for typos." };
+
+    const missing = missingWords(opts.words, text, tokens);
+    if (missing.length) {
+      const list = missing.map((w) => `「${w.split('|')[0]}」`).join(' and ');
+      return { status: 'shake', code: 'word', message: `Use ${list} in your answer.`, missing, tokens };
+    }
 
     const res = matchSpecs(item.check || [], text, tokens, ctx);
     if (!res.found) {
@@ -410,5 +456,5 @@ export function createChecker(tokenizer, options = {}) {
     return (res.ranges || [res.range]).filter(Boolean);
   }
 
-  return { check, tokenize, furigana, highlight, isPotentialVerb };
+  return { check, tokenize, furigana, highlight, isPotentialVerb, missingWords: (words, s) => missingWords(words, normalize(s), tokenize(normalize(s))) };
 }

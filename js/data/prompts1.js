@@ -15,6 +15,7 @@ export default {
 
   // 2
   'ga': D("Your teacher looks at the open window.", [["Teacher", "だれが窓を開けましたか。", "Who opened the window?"]], "Say that Tanaka opened it.", "田中 開ける", "田中さんが開けました。"),
+  'verb-groups': D("A friend asks about your Sundays.", [["Friend", "日曜日は何をしますか。", "What do you do on Sundays?"]], "Say you watch movies, and you read books too (one ichidan verb and one godan verb).", "見る 読む", "映画を見ます。本も読みます。"),
   'wo': D("A friend asks about your mornings.", [["Friend", "朝ご飯に何を食べますか。", "What do you eat for breakfast?"]], "Say you eat toast every morning.", "毎朝 トースト 食べる", "毎朝トーストを食べます。"),
   'ni': D("Planning an early trip.", [["Friend", "明日、何時に起きますか。", "What time are you getting up tomorrow?"]], "Say you will get up at six.", "六時 起きる", "六時に起きます。"),
   'masu': D("A coworker asks about your evening.", [["Coworker", "今晩、何をしますか。", "What are you doing tonight?"]], "Say (politely) that you will read a book.", "本 読む", "家で本を読みます。"),
@@ -48,14 +49,17 @@ export default {
   'na-adj': D("Recommending a place to read.", [["Friend", "どんな公園ですか。", "What kind of park is it?"]], "Say it is a very quiet park.", "静か 公園", "とても静かな公園です。"),
   'dictionary-form': D("Texting a close friend.", [["Friend", "明日何する？", "What are you doing tomorrow?"]], "Say casually that you will play tennis with a friend.", "テニス する", "友達とテニスをする。"),
   'nai-form': D("Hanging out at a friend's place.", [["Friend", "コーヒー飲む？", "Want some coffee?"]], "Say casually that you don't drink coffee.", "コーヒー 飲む", "ううん、コーヒーは飲まない。"),
+  'nai-form-ichidan': D("A friend offers you breakfast.", [["Friend", "朝ご飯、食べる？", "Want some breakfast?"]], "Say casually that you don't eat in the morning.", "朝 食べる", "ううん、朝は食べない。"),
   'ga-suki': D("Getting to know someone.", [["New friend", "どんなスポーツが好きですか。", "What sports do you like?"]], "Say you like baseball.", "野球", "野球が好きです。"),
   'ga-arimasu': D("Your new neighbor asks about the area.", [["Neighbor", "この近くに何がありますか。", "What is there near here?"]], "Say there is a big supermarket.", "大きい スーパー", "大きいスーパーがあります。"),
 
   // 6
   'kurai': D("A tourist asks you for directions.", [["Tourist", "駅まで何分ぐらいかかりますか。", "About how many minutes is it to the station?"]], "Say it takes about fifteen minutes on foot.", "十五分 歩く", "歩いて十五分ぐらいです。"),
-  'ta-form': D("Texting a friend.", [["Friend", "昨日、何した？", "What did you do yesterday?"]], "Say casually that you watched a movie at home.", "映画 見る", "うちで映画を見た。"),
+  'ta-form-ichidan': D("Texting a friend.", [["Friend", "昨日、何した？", "What did you do yesterday?"]], "Say casually that you watched a movie at home.", "映画 見る", "うちで映画を見た。"),
+  'ta-form': D("Texting a friend.", [["Friend", "週末、何した？", "What did you do over the weekend?"]], "Say casually that you read manga all day.", "一日中 漫画 読む", "一日中漫画を読んだ。"),
   'nakatta': D("Texting a friend.", [["Friend", "昨日のパーティー、行った？", "Did you go to the party yesterday?"]], "Say casually that you didn't go to the party.", "パーティー 行く", "ううん、パーティーには行かなかった。"),
-  'te-form': Pa("Your diary.", "今朝は六時に起きました。＿それから、電車で会社に行きました。", "This morning I got up at six. ___ Then I went to work by train.", "Say you ate breakfast and read the newspaper (join them with the て-form).", "朝ご飯 新聞 読む", "朝ご飯を食べて、新聞を読みました。"),
+  'te-form-ichidan': Pa("Your diary.", "今朝は六時に起きました。＿それから、電車で会社に行きました。", "This morning I got up at six. ___ Then I went to work by train.", "Say you ate breakfast and read the newspaper (join them with the て-form).", "朝ご飯 新聞 読む", "朝ご飯を食べて、新聞を読みました。"),
+  'te-form': Pa("Your diary.", "日曜日は天気がよかった。＿夜は家でゆっくりした。", "The weather was nice on Sunday. ___ In the evening I relaxed at home.", "Say you went to the park and played tennis (join them with the て-form of 行く).", "公園 行く テニス", "公園に行って、テニスをしました。"),
   'te-kudasai': D("Your friend is talking very fast.", [["Friend", "それで、昨日駅で田中さんが…", "So, yesterday at the station, Tanaka…"]], "Politely ask them to speak slowly.", "ゆっくり 話す", "ゆっくり話してください。"),
   'te-iru': D("Your mom calls you.", [["Mom", "今、何してるの？", "What are you doing right now?"]], "Say you are making dinner.", "晩ご飯 作る", "晩ご飯を作っています。"),
 

@@ -42,6 +42,8 @@ const isAdj = (t) => t && t.pos === '形容詞';
 const isNoun = (t) => t && t.pos === '名詞';
 const isAux = (t) => t && t.pos === '助動詞';
 const form = (t) => (t && t.conjugated_form) || '';
+// past た, or the voiced だ after a godan sound change (読んだ, 泳いだ)
+const isPastAux = (t, prev) => isAux(t) && (t.basic_form === 'た' || (t.basic_form === 'だ' && isVerb(prev) && form(prev) === '連用タ接続'));
 const godanNonSa = (t) => isVerb(t) && /^五段/.test(t.conjugated_type) && !/サ行/.test(t.conjugated_type);
 
 // Word classes used in HOST / FOLLOW.
@@ -73,12 +75,27 @@ export const CLASSES = {
     test: (t) => (isVerb(t) || isAdj(t) || isAux(t)) && (form(t) === '基本形' || form(t) === '体言接続'),
   },
   // Plain past
-  Pt: { desc: 'a plain past form (〜た)', test: (t) => isAux(t) && t.basic_form === 'た' && form(t) === '基本形' },
+  Pt: { desc: 'a plain past form (〜た)', test: (t) => isAux(t) && /^[たっだ]/.test(t.surface_form) && /^[ただ]$/.test(t.basic_form) && form(t) === '基本形' },
   // Any inflecting word (verb/adjective/auxiliary)
   I: { desc: 'a verb, adjective or auxiliary', test: (t) => isVerb(t) || isAdj(t) || isAux(t) },
   // Particle
   Pa: { desc: 'a particle', test: (t) => t && t.pos === '助詞' },
 };
+
+// Verb class: 'g' = godan (五段), 'i' = ichidan (一段) or irregular する / 来る.
+// A potential verb like 読める is itself ichidan; only the potential detector
+// traces it back to its godan verb.
+export function verbClass(t) {
+  if (!isVerb(t)) return null;
+  // IPADIC sometimes tags 来ら (来られる) as a godan verb; 来る is always irregular
+  if (t.basic_form === '来る' && /^来/.test(t.surface_form)) return 'i';
+  const ct = t.conjugated_type || '';
+  if (/^五段/.test(ct)) return 'g';
+  if (/一段|サ変|カ変/.test(ct)) return 'i';
+  return null;
+}
+// true when no class is required, or the verb is of the required class
+const ofClass = (t, ctx) => !ctx || !ctx.cls || verbClass(t) === ctx.cls;
 
 // Named detectors for conjugations that are easier to see in tokens than in
 // text. Each returns the index of the token where the pattern occurs, or -1.
@@ -92,29 +109,37 @@ export const DETECTORS = {
   // Dictionary form of a verb used as a predicate (not followed by an auxiliary)
   dict: (ts) => ts.findIndex((t, i) => isVerb(t) && t.pos_detail_1 === '自立' && form(t) === '基本形' && !isAux(ts[i + 1])),
   // Plain negative 〜ない after a verb
-  nai: (ts) => ts.findIndex((t, i) => isAux(t) && t.basic_form === 'ない' && isVerb(ts[i - 1])),
+  nai: (ts, ctx) => ts.findIndex((t, i) => isAux(t) && t.basic_form === 'ない' && isVerb(ts[i - 1]) && ofClass(ts[i - 1], ctx)),
   // Plain past 〜た/だ after a verb
-  ta: (ts) => ts.findIndex((t, i) => isAux(t) && t.basic_form === 'た' && isVerb(ts[i - 1])),
+  ta: (ts, ctx) => ts.findIndex((t, i) => isPastAux(t, ts[i - 1]) && isVerb(ts[i - 1]) && ofClass(ts[i - 1], ctx)),
   // 〜なかった after a verb
   nakatta: (ts) => ts.findIndex((t, i) => isAux(t) && t.basic_form === 'ない' && /タ接続/.test(form(t)) && isVerb(ts[i - 1]) && isAux(ts[i + 1]) && ts[i + 1].basic_form === 'た'),
   // て-form of a verb
-  te: (ts) => ts.findIndex((t, i) => isVerb(t) && /^連用/.test(form(t)) && ts[i + 1] && ts[i + 1].pos === '助詞' && /^[てで]$/.test(ts[i + 1].surface_form)),
+  te: (ts, ctx) => ts.findIndex((t, i) => isVerb(t) && /^連用/.test(form(t)) && ts[i + 1] && ts[i + 1].pos === '助詞' && /^[てで]$/.test(ts[i + 1].surface_form) && ofClass(t, ctx)),
   // Potential form: 食べられる / 読める / できる / 来られる
   potential: (ts, ctx) => ts.findIndex((t, i) => {
     if (!isVerb(t)) return false;
-    if (t.basic_form === 'できる' || t.basic_form === '出来る') return true;
-    if (t.pos_detail_1 === '接尾' && /^(られる|れる)$/.test(t.basic_form)) return true;
-    if (t.pos_detail_1 === '自立' && t.conjugated_type === '一段' && ctx && ctx.isPotentialVerb) return ctx.isPotentialVerb(t.basic_form);
-    if (/^(見れ|来れ|これ|寝れ|出れ|着れ)/.test(t.surface_form) && t.conjugated_type === '一段') return true; // ら抜き
+    const cls = ctx && ctx.cls;
+    // する → できる
+    if (t.basic_form === 'できる' || t.basic_form === '出来る') return cls !== 'g';
+    // 食べられる / 来られる (ichidan & 来る); 〜れる after a godan stem is the passive
+    if (t.pos_detail_1 === '接尾' && /^(られる|れる)$/.test(t.basic_form)) {
+      if (!cls) return true;
+      return cls === 'i' && verbClass(ts[i - 1]) === 'i';
+    }
+    // 読める / 話せる — potential of a godan verb
+    if (t.pos_detail_1 === '自立' && t.conjugated_type === '一段' && ctx && ctx.isPotentialVerb && ctx.isPotentialVerb(t.basic_form)) return cls !== 'i';
+    // ら抜き: 見れる / 来れる
+    if (/^(見れ|来れ|これ|寝れ|出れ|着れ)/.test(t.surface_form) && t.conjugated_type === '一段') return cls !== 'g';
     return false;
   }),
   // Passive: 〜れる / 〜られる after a ない-stem
-  passive: (ts) => ts.findIndex((t, i) => isVerb(t) && t.pos_detail_1 === '接尾' && /^(られる|れる)$/.test(t.basic_form) && isVerb(ts[i - 1])),
+  passive: (ts, ctx) => ts.findIndex((t, i) => isVerb(t) && t.pos_detail_1 === '接尾' && /^(られる|れる)$/.test(t.basic_form) && isVerb(ts[i - 1]) && ofClass(ts[i - 1], ctx)),
   // Causative: 〜せる / 〜させる
-  causative: (ts) => ts.findIndex((t, i) => {
+  causative: (ts, ctx) => ts.findIndex((t, i) => {
     if (!isVerb(t)) return false;
-    if (t.pos_detail_1 === '接尾' && /^(させる|せる|す)$/.test(t.basic_form) && isVerb(ts[i - 1])) return true;
-    if (t.basic_form === 'させる') return true;
+    if (t.pos_detail_1 === '接尾' && /^(させる|せる|す)$/.test(t.basic_form) && isVerb(ts[i - 1])) return ofClass(ts[i - 1], ctx);
+    if (t.basic_form === 'させる') return !ctx || ctx.cls !== 'g'; // する → させる
     return false;
   }),
   // Causative-passive: 〜させられる / 〜せられる / 〜される(short)
@@ -126,13 +151,17 @@ export const DETECTORS = {
     return false;
   }),
   // Plain volitional: 食べよう / 行こう / しよう
-  volitional: (ts) => ts.findIndex((t, i) => isVerb(t) && form(t) === '未然ウ接続' && isAux(ts[i + 1]) && /^(う|よう)$/.test(ts[i + 1].basic_form)),
+  volitional: (ts, ctx) => ts.findIndex((t, i) => isVerb(t) && form(t) === '未然ウ接続' && isAux(ts[i + 1]) && /^(う|よう)$/.test(ts[i + 1].basic_form) && ofClass(t, ctx)),
   // Imperative: 食べろ / 行け / 来い / しろ
-  imperative: (ts) => ts.findIndex((t) => isVerb(t) && /^命令/.test(form(t)) && !/^(なさる|くださる|下さる|いらっしゃる|ござる)$/.test(t.basic_form)),
+  imperative: (ts, ctx) => ts.findIndex((t) => isVerb(t) && /^命令/.test(form(t)) && !/^(なさる|くださる|下さる|いらっしゃる|ござる)$/.test(t.basic_form) && ofClass(t, ctx)),
   // ば-conditional
-  ba: (ts) => ts.findIndex((t, i) => /仮定形/.test(form(t)) && ts[i + 1] && ts[i + 1].surface_form === 'ば'),
+  // with class 'i', い-adjectives (高ければ) count too
+  ba: (ts, ctx) => ts.findIndex((t, i) => /仮定形/.test(form(t)) && ts[i + 1] && ts[i + 1].surface_form === 'ば'
+    && (!ctx || !ctx.cls || (isVerb(t) ? verbClass(t) === ctx.cls : ctx.cls === 'i' && isAdj(t)))),
+  // any main verb (used with a class: %verb/g, %verb/i)
+  verb: (ts, ctx) => ts.findIndex((t) => isVerb(t) && t.pos_detail_1 === '自立' && ofClass(t, ctx)),
   // 〜たら conditional
-  tara: (ts) => ts.findIndex((t) => isAux(t) && t.basic_form === 'た' && /仮定/.test(form(t))),
+  tara: (ts) => ts.findIndex((t, i) => isPastAux(t, ts[i - 1]) && /仮定/.test(form(t))),
 };
 
 const JP_RE = /[぀-ヿ㐀-鿿ｦ-ﾟ々〆ヶ]/;
@@ -173,15 +202,17 @@ export function parseSpec(spec) {
   let kind = 're';
   let pattern = rest;
   let pos = null;
+  let cls = null;
   if (rest.startsWith('#')) { kind = 'particle'; pattern = rest.slice(1); }
   else if (rest.startsWith('=')) { kind = 'token'; [pattern, pos] = rest.slice(1).split(':'); }
-  else if (rest.startsWith('%')) { kind = 'detector'; pattern = rest.slice(1); }
+  else if (rest.startsWith('%')) { kind = 'detector'; [pattern, cls] = rest.slice(1).split('/'); }
   for (const c of [...(host || []), ...(follow || [])]) {
     if (!CLASSES[c]) throw new Error(`Unknown word class "${c}" in spec "${spec}"`);
   }
   if (kind === 'detector' && !DETECTORS[pattern]) throw new Error(`Unknown detector "${pattern}" in spec "${spec}"`);
+  if (cls && !/^[gi]$/.test(cls)) throw new Error(`Unknown verb class "${cls}" in spec "${spec}" (use /g or /i)`);
   if (kind === 're') new RegExp(pattern); // throws on a bad pattern
-  return { kind, pattern, pos, host, follow, fused, spec };
+  return { kind, pattern, pos, cls, host, follow, fused, spec };
 }
 
 // Offsets: kuromoji's word_position is 1-based.
@@ -218,6 +249,7 @@ function followOk(classes, tokens, endIdx) {
 // Returns { found: bool, hostProblem: {spec, host} | null }
 function matchSpecs(specs, text, tokens, ctx) {
   let hostProblem = null;
+  let classProblem = null; // right form, wrong verb class
   for (const raw of specs) {
     const s = typeof raw === 'string' ? parseSpec(raw) : Array.isArray(raw) ? null : raw;
     const hits = [];
@@ -227,6 +259,8 @@ function matchSpecs(specs, text, tokens, ctx) {
       if (subs.every((r) => r.found)) return { found: true, range: subs[subs.length - 1].range, ranges: subs.map((r) => r.range) };
       const bad = subs.find((r) => !r.found && r.hostProblem);
       if (bad && !hostProblem && subs.filter((r) => !r.found).length === 1) hostProblem = bad.hostProblem;
+      const cbad = subs.find((r) => !r.found && r.classProblem);
+      if (cbad && !classProblem) classProblem = cbad.classProblem;
       continue;
     }
     if (s.kind === 'particle') {
@@ -234,7 +268,8 @@ function matchSpecs(specs, text, tokens, ctx) {
     } else if (s.kind === 'token') {
       for (const t of tokens) if (t.surface_form === s.pattern && (!s.pos || t.pos === s.pos || t.pos_detail_1 === s.pos)) hits.push([t.start, t.end]);
     } else if (s.kind === 'detector') {
-      const idx = DETECTORS[s.pattern](tokens, ctx);
+      const idx = DETECTORS[s.pattern](tokens, { ...ctx, cls: s.cls });
+      if (idx < 0 && s.cls && !classProblem && DETECTORS[s.pattern](tokens, ctx) >= 0) classProblem = { cls: s.cls };
       if (idx >= 0) {
         const t = tokens[idx];
         const n = tokens[idx + 1];
@@ -262,8 +297,13 @@ function matchSpecs(specs, text, tokens, ctx) {
       if (!hostProblem) hostProblem = { spec: s, host, hostGood, followGood };
     }
   }
-  return { found: false, hostProblem };
+  return { found: false, hostProblem, classProblem };
 }
+
+const CLASS_HINT = {
+  g: 'a godan verb (書く, 読む, 話す, 待つ, 行く …)',
+  i: 'an ichidan verb (食べる, 見る, 起きる …), する or 来る',
+};
 
 // Common errors that a learner can make regardless of the grammar point.
 export function findGeneralErrors(tokens) {
@@ -283,13 +323,13 @@ export function findGeneralErrors(tokens) {
       errs.push(`「${t.surface_form}」 doesn't attach to the dictionary form: 「${prev.surface_form}${t.surface_form}」.`);
     // 書きて / 読みた (godan verbs other than す-verbs change before て/た)
     if (godanNonSa(prev) && form(prev) === '連用形' &&
-        ((t.pos === '助詞' && /^[てで]$/.test(t.surface_form)) || (isAux(t) && t.basic_form === 'た')))
+        ((t.pos === '助詞' && /^[てで]$/.test(t.surface_form)) || isPastAux(t, prev)))
       errs.push(`「${prev.basic_form}」 is a godan verb, so its て/た-form changes sound (e.g. 書く→書いて, 読む→読んで). 「${prev.surface_form}${t.surface_form}」 is not a valid form.`);
     // 書いで / 読んて: wrong voicing
     if (godanNonSa(prev) && form(prev) === '連用タ接続') {
       const voiced = /ガ行|ナ行|バ行|マ行/.test(prev.conjugated_type);
       const s = t.surface_form;
-      if ((t.pos === '助詞' && /^[てで]$/.test(s)) || (isAux(t) && t.basic_form === 'た')) {
+      if ((t.pos === '助詞' && /^[てで]$/.test(s)) || isPastAux(t, prev)) {
         const isVoiced = /^[でだ]/.test(s);
         if (voiced !== isVoiced)
           errs.push(`「${prev.basic_form}」 takes ${voiced ? 'で/だ' : 'て/た'} in its て/た-form, not 「${s}」.`);
@@ -406,19 +446,24 @@ export function createChecker(tokenizer, options = {}) {
     }
 
     const res = matchSpecs(item.check || [], text, tokens, ctx);
+    const name = item.variant ? `${item.grammar} (${item.variant})` : item.grammar;
+    if (!res.found && res.classProblem) {
+      const hint = item.useHint || CLASS_HINT[res.classProblem.cls];
+      return { status: 'shake', code: 'class', message: `This is the ${item.variant || ''} version of ${item.grammar} — use ${hint}.`.replace('  ', ' '), tokens };
+    }
     if (!res.found) {
       if (res.hostProblem) {
         const { spec, host, hostGood, followGood } = res.hostProblem;
         let why;
         if (!hostGood) {
           const wants = spec.host.map((c) => CLASSES[c].desc).join(' or ');
-          why = `${item.grammar} should attach to ${wants}${host ? `, but here it follows 「${host.surface_form}」` : ''}.`;
+          why = `${name} should attach to ${wants}${host ? `, but here it follows 「${host.surface_form}」` : ''}.`;
         } else if (!followGood) {
-          why = `${item.grammar} needs ${spec.follow.map((c) => CLASSES[c].desc).join(' or ')} after it.`;
+          why = `${name} needs ${spec.follow.map((c) => CLASSES[c].desc).join(' or ')} after it.`;
         }
         return { status: 'incorrect', code: 'attach', message: why, tokens };
       }
-      return { status: 'shake', code: 'missing', message: `Use ${item.grammar} in your sentence.`, tokens };
+      return { status: 'shake', code: 'missing', message: `Use ${name} in your answer.`, tokens };
     }
 
     // modern conjugation rules don't apply to classical (文語) forms

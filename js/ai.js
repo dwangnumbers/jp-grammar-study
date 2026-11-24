@@ -28,7 +28,8 @@ Reply with ONLY a JSON object, no markdown:
 
 export async function gradeWithAI({ apiKey, model, item, prompt: ctx, sentence, signal }) {
   const prompt = [
-    `Grammar point: ${item.grammar}`,
+    `Grammar point: ${item.grammar}${item.variant ? ` — ${item.variant} version` : ''}`,
+    item.variant ? `This item drills the ${item.variant} version only: the answer must use this form with ${item.useHint || (/^godan/.test(item.variant) ? 'a godan verb' : 'an ichidan verb, する or 来る')}. Using the form only with a verb from another group counts as "missing".` : '',
     `Type: ${item.type}`,
     `Meaning: ${item.meaning}${item.also && item.also.length ? ` (also: ${item.also.join('; ')})` : ''}`,
     `Formation: ${item.structure}`,

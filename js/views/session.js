@@ -9,7 +9,7 @@ import { speak, canSpeak } from '../speech.js';
 import { detailSections, bindSpeak, tile, STAGE_COLORS, TYPE_COLORS, renderJa, partsHTML, examplesHTML } from './common.js';
 import { recentMistakes } from './dashboard.js';
 
-const TRIVIAL_SHAKES = new Set(['empty', 'latin', 'notjp', 'copy', 'bare', 'short', 'word']);
+const TRIVIAL_SHAKES = new Set(['empty', 'latin', 'notjp', 'copy', 'bare', 'short', 'word', 'class']);
 
 function enterSession() { document.body.classList.add('in-session'); window.scrollTo(0, 0); }
 export function leaveSession() { document.body.classList.remove('in-session'); }
@@ -61,7 +61,7 @@ export function renderLessons(root) {
         <div class="session-top"><a class="home" href="#/" title="Dashboard">⌂</a><span>Lessons</span>
           <span class="stats"><span><b>${availableLessons(state).length}</b> in queue</span></span></div>
         <div class="q-banner ${it.type}"><span class="level-tag">Level ${it.level} · ${TYPES[it.type].label}</span>
-          <div class="grammar" lang="ja">${esc(it.grammar)}</div><div class="lesson-meaning">${esc(it.meaning)}</div></div>
+          <div class="grammar" lang="ja">${esc(it.grammar)}</div>${it.variant ? `<div class="variant-tag">${esc(it.variant)}</div>` : ''}<div class="lesson-meaning">${esc(it.meaning)}</div></div>
         <div class="lesson-body" style="--tabc:${TYPE_COLORS[it.type]}">
           ${sections.map((sec) => `
             <details class="dropdown" data-sec="${sec.key}" ${closed.has(sec.key) ? '' : 'open'}>
@@ -71,7 +71,7 @@ export function renderLessons(root) {
         </div>
         <div class="lesson-footer">
           <button class="btn" id="prev" ${idx === 0 ? 'disabled' : ''}>← Back</button>
-          <div class="lesson-chips">${batch.map((b, i) => `<button class="${b.type} ${i === idx ? 'active' : ''}" data-item="${i}" lang="ja">${esc(b.grammar)}</button>`).join('')}</div>
+          <div class="lesson-chips">${batch.map((b, i) => `<button class="${b.type} ${i === idx ? 'active' : ''}" data-item="${i}" lang="ja">${esc(b.grammar)}${b.variant ? `<small>${esc(b.variant.split(/[ ,+]/)[0])}</small>` : ''}</button>`).join('')}</div>
           <button class="btn ${last ? 'primary' : ''}" id="next">${last ? 'Start quiz →' : 'Next →'}</button>
         </div>
       </div>`;
@@ -184,7 +184,7 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
         </span>
       </div>
       <div class="session-progress"><span id="s-bar" style="width:0"></span></div>
-      <div class="q-banner" id="banner"><span class="level-tag" id="lvl"></span><div class="grammar" id="grammar" lang="ja"></div></div>
+      <div class="q-banner" id="banner"><span class="level-tag" id="lvl"></span><div class="grammar" id="grammar" lang="ja"></div><div class="variant-tag" id="variant"></div></div>
       <div class="q-prompt" id="prompt"></div>
       <div class="q-context" id="context"></div>
       <div class="q-answer">
@@ -244,6 +244,8 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
     const it = current;
     $('banner').className = `q-banner ${it.type}`;
     $('grammar').textContent = it.grammar;
+    $('variant').textContent = it.variant || '';
+    $('variant').classList.toggle('hidden', !it.variant);
     $('lvl').textContent = `Level ${it.level}`;
     const pr = it.prompt;
     $('prompt').innerHTML = `${TYPES[it.type].label} <b>${pr && pr.kind === 'passage' ? 'Fill in the blank' : 'Reply'}</b>`;
@@ -350,7 +352,7 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
     if (!showInfo) return;
     const st = getState();
     qi.innerHTML = `
-      <div class="item-header"><div class="big ${current.type}" lang="ja">${esc(current.grammar)}</div>
+      <div class="item-header"><div class="big ${current.type}" lang="ja">${esc(current.grammar)}${current.variant ? `<span class="v">${esc(current.variant)}</span>` : ''}</div>
         <div><div class="title">${esc(current.meaning)}</div><div class="sub"><a href="#/item/${esc(current.id)}" target="_blank">Open item page ↗</a></div></div></div>
       ${current.prompt ? `<div class="section"><h3>Example answer</h3><div class="example"><span></span><div class="ja answer-echo" lang="ja" style="--hl:${TYPE_COLORS[current.type]}">${renderJa(current.prompt.answer, current)}</div></div></div>` : ''}
       ${lastResult && lastResult.text ? `<div class="section"><h3>Your answer</h3><div class="example"><span></span><div class="ja answer-echo" lang="ja" style="--hl:${TYPE_COLORS[current.type]}">${renderJa(lastResult.text, current, { furigana: false })}</div></div></div>` : ''}
@@ -459,7 +461,7 @@ function renderSummary(root, { mode, title, results, answers, correctAnswers, le
   };
   const tiles = (list) => list.map((r) => {
     const it = BY_ID.get(r.id);
-    return `<a class="tile ${it.type}" href="#/item/${esc(it.id)}" title="${esc(it.meaning)}"><span class="g">${esc(it.grammar)}</span><span class="m">${esc(it.meaning)}${changeLabel(r)}</span></a>`;
+    return `<a class="tile ${it.type}" href="#/item/${esc(it.id)}" title="${esc(it.meaning)}"><span class="g">${esc(it.grammar)}</span>${it.variant ? `<span class="v">${esc(it.variant)}</span>` : ''}<span class="m">${esc(it.meaning)}${changeLabel(r)}</span></a>`;
   }).join('');
   const more = mode === 'quiz' && availableLessons(state).length;
   const moreReviews = mode === 'review' && availableReviews(state).length;

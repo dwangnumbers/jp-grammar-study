@@ -100,7 +100,7 @@ export function renderItem(root, id) {
   const sentences = (p && p.sentences) || [];
   root.innerHTML = `
     <div class="item-header">
-      <div class="big ${item.type}" lang="ja">${esc(item.grammar)}</div>
+      <div class="big ${item.type}" lang="ja">${esc(item.grammar)}${item.variant ? `<span class="v">${esc(item.variant)}</span>` : ''}</div>
       <div><div class="title">${esc(item.meaning)}</div>
         <div class="sub">${typeBadge(item.type)} <a href="#/level/${item.level}">Level ${item.level}</a> · <span lang="ja">${esc(item.reading)}</span> · ${esc(item.romaji)}</div></div>
     </div>
@@ -121,7 +121,7 @@ export function renderSearch(root, q) {
   const query = (q || '').trim().toLowerCase();
   const norm = (s) => String(s || '').toLowerCase().replace(/[〜～]/g, '');
   const res = !query ? [] : ITEMS.filter((it) =>
-    [it.grammar, it.meaning, it.reading, it.romaji, it.id, ...it.also].some((f) => norm(f).includes(norm(query))));
+    [it.grammar, it.meaning, it.reading, it.romaji, it.id, it.variant, ...it.also].some((f) => norm(f).includes(norm(query))));
   root.innerHTML = `<h1 class="page-title">Search</h1>
     <p class="muted">${query ? `${res.length} result${res.length === 1 ? '' : 's'} for “${esc(q)}”` : 'Search by grammar (てもいい), meaning (even if), reading or romaji.'}</p>
     <div class="list">${res.map((it) => listRow(state, it)).join('')}</div>`;

@@ -28,14 +28,14 @@ export function tile(state, item, { compact = false } = {}) {
   const st = itemStatus(state, item);
   const cls = st.key === 'locked' ? 'locked' : st.key === 'lesson' ? `${item.type} lesson` : item.type;
   const dot = st.stage >= 1 ? `<span class="stage-dot" style="background:${STAGE_COLORS[st.key]}" title="${esc(st.label)}"></span>` : '';
-  return `<a class="tile ${cls}${compact ? ' compact' : ''}" href="#/item/${esc(item.id)}" title="${esc(item.meaning)} — ${esc(st.label)}">${dot}<span class="g">${esc(item.grammar)}</span>${compact ? '' : `<span class="m">${esc(item.meaning)}</span>`}</a>`;
+  return `<a class="tile ${cls}${compact ? ' compact' : ''}" href="#/item/${esc(item.id)}" title="${esc(item.meaning)} — ${esc(st.label)}">${dot}<span class="g">${esc(item.grammar)}</span>${item.variant ? `<span class="v">${esc(item.variant)}</span>` : ''}${compact ? '' : `<span class="m">${esc(item.meaning)}</span>`}</a>`;
 }
 
 export function listRow(state, item) {
   const st = itemStatus(state, item);
   const cls = st.key === 'locked' ? 'locked' : item.type;
   return `<a class="list-row ${cls}" href="#/item/${esc(item.id)}">
-    <span class="g">${esc(item.grammar)}</span>
+    <span class="g">${esc(item.grammar)}${item.variant ? `<span class="v">${esc(item.variant)}</span>` : ''}</span>
     <span class="m">${esc(item.meaning)}${st.stage >= 1 ? `<span class="stage">${esc(st.label)}</span>` : ''}</span>
     <span class="r">${esc(item.reading)}</span></a>`;
 }

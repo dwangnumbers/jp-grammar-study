@@ -64,8 +64,21 @@ A rule-based checker can't prove that a whole sentence sounds natural. If you wr
 - **Pronunciation audio.** Uses your browser's Japanese text-to-speech voice.
 - **Example sentences.** These get automatic furigana and grammar highlighting.
 - **Your past sentences.** Each item page keeps a record of the sentences you've written.
-- **Export and import.** Save your progress as a JSON file to back it up or move it to another device. Progress is otherwise stored in `localStorage`.
+- **Cloud sync.** Your progress can be kept in a private GitHub Gist, so it follows you across browsers and devices (see below).
+- **Export and import.** Save your progress as a JSON file to back it up or move it to another device.
 - **Skip ahead.** If you already know the basics, Settings → Current level lets you start at a higher level.
+
+## Cloud sync
+
+Without sync, progress lives in your browser's `localStorage`. That means it is tied to one browser and one address, and clearing site data or using a private window loses it. To sync it instead:
+
+1. [Create a GitHub token](https://github.com/settings/tokens/new?scopes=gist&description=JP%20Grammar%20Study%20sync) with only the **gist** scope. A fine-grained token with **Gists: read and write** also works.
+2. In the app, go to **Settings → Cloud sync**, paste the token and press **Connect**. Do this once on each device or browser you use.
+
+The app saves your progress to a private gist named `jp-grammar-study-progress.json`. It downloads and merges the gist when the app opens, when the tab regains focus, and every few minutes. It uploads a few seconds after every change, and again when you close the tab. A cloud icon in the header shows the sync status.
+
+- **Merging.** Progress from different devices is merged item by item, so reviews done on a laptop and a phone are both kept. A device connecting for the first time is merged into the cloud save. A reset, level change or import on one device replaces the progress on the others.
+- **The token.** It is stored only in that browser, sent only to `api.github.com`, never included in exports, and can only access your gists.
 
 ## Running it
 
@@ -95,6 +108,7 @@ The test suite checks the following:
 - **Examples.** All 804 example sentences pass their own item's checker.
 - **Review contexts.** Every item has one, and every sample answer passes both the grammar check and the required-word check.
 - **Checker cases.** Hand-written correct sentences must be accepted and incorrect ones rejected.
+- **Sync merging.** Progress from two devices combines item by item, resets propagate, and a newly connected device never overwrites real progress.
 - **SRS engine.** The penalty math, intervals and hour rounding behave like WaniKani's. A simulated perfect run reaches level 60, and every item eventually unlocks.
 
 `npm test 21-30` runs only the given level range, and `npm test te-mo-ii` runs only that item.
@@ -106,6 +120,8 @@ index.html            app shell
 css/style.css         dark theme
 js/app.js             router + header
 js/srs.js             spaced-repetition engine (WaniKani rules)
+js/sync.js            cloud sync via a private GitHub Gist
+js/merge.js           merges progress from two devices
 js/checker.js         sentence checker (spec DSL documented at the top of the file)
 js/ai.js              optional Claude grading
 js/data/stage1–6.js   the curriculum, 10 levels per file

@@ -7,6 +7,8 @@ import { renderLevels, renderLevel, renderType, renderItem, renderSearch } from 
 import { renderLessons, renderReviews, renderPractice, leaveSession } from './views/session.js';
 import { renderSettings } from './views/settings.js';
 import { toast } from './views/common.js';
+import { initSync, isConnected, getStatus, onStatus, onApplied } from './sync.js';
+import { esc } from './dom.js';
 
 const app = document.getElementById('app');
 let cleanup = null;
@@ -37,7 +39,7 @@ function route() {
     case 'type': renderType(app, rest[0], rest[1] !== undefined ? +rest[1] : undefined); break;
     case 'item': renderItem(app, rest.join('/')); break;
     case 'search': renderSearch(app, rest.join('/')); break;
-    case 'settings': renderSettings(app); break;
+    case 'settings': cleanup = renderSettings(app); break;
     default: app.innerHTML = '<div class="empty-state"><div class="big">迷</div>Page not found. <a href="#/">Go to the dashboard</a>.</div>';
   }
   // if the session view decided there was nothing to do, it's not a session
@@ -58,8 +60,23 @@ function updateHeader() {
   document.getElementById('header-actions').innerHTML = `
     <a class="pill level" href="#/level/${state.level}" title="Your level">Lv <span class="n">${state.level}</span></a>
     <a class="pill lessons" href="#/lessons" title="Lessons">Lessons <span class="n">${l}</span></a>
-    <a class="pill reviews" href="#/reviews" title="Reviews">Reviews <span class="n">${r}</span></a>`;
+    <a class="pill reviews" href="#/reviews" title="Reviews">Reviews <span class="n">${r}</span></a>${syncBadge()}`;
   document.title = `${r ? `(${r}) ` : ''}JP Grammar Study — 文法`;
+}
+
+const SYNC_LABEL = {
+  ok: 'Progress synced to the cloud',
+  pending: 'Saving to the cloud…',
+  syncing: 'Syncing…',
+  offline: 'Cloud sync paused',
+  error: 'Cloud sync stopped',
+  idle: 'Cloud sync',
+};
+function syncBadge() {
+  if (!isConnected() && getStatus().state !== 'error') return '';
+  const st = getStatus();
+  const title = `${SYNC_LABEL[st.state] || 'Cloud sync'}${st.message ? ` — ${st.message}` : ''}`;
+  return `<a class="sync-badge s-${st.state}" href="#/settings" title="${esc(title)}" aria-label="${esc(title)}">☁</a>`;
 }
 
 document.getElementById('search-form').addEventListener('submit', (e) => {
@@ -82,8 +99,26 @@ setInterval(() => {
 // Load the analyzer in the background; re-render pages that show example
 // sentences so they get furigana and grammar highlighting.
 onCheckerReady(() => {
-  if (!inSession && currentRoute.startsWith('item')) route();
+  if (!inSession && currentRoute.startsWith('item')) // Cloud sync: when progress arrives from another device, redraw the page
+// (sessions keep going and pick it up as they move on).
+onStatus(updateHeader);
+onApplied(() => {
+  if (!inSession && currentRoute !== 'settings') route();
+  else updateHeader();
+});
+initSync();
+
+route();
 });
 loadChecker().catch(() => toast('Could not load the Japanese analyzer — check your connection.'));
+
+// Cloud sync: when progress arrives from another device, redraw the page
+// (sessions keep going and pick it up as they move on).
+onStatus(updateHeader);
+onApplied(() => {
+  if (!inSession && currentRoute !== 'settings') route();
+  else updateHeader();
+});
+initSync();
 
 route();

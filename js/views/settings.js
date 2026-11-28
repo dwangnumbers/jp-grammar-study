@@ -4,6 +4,48 @@ import { setLevel, refresh } from '../srs.js';
 import { MAX_LEVEL, ITEMS } from '../data/index.js';
 import { AI_MODELS, testKey } from '../ai.js';
 import { toast } from './common.js';
+import { connect, disconnect, syncNow, isConnected, syncInfo, getStatus, onStatus } from '../sync.js';
+import { fmtDate } from '../dom.js';
+
+let offPrevStatus = null;
+const TOKEN_URL = 'https://github.com/settings/tokens/new?scopes=gist&description=JP%20Grammar%20Study%20sync';
+
+function syncCardHTML() {
+  if (!isConnected()) {
+    return `<div class="card" id="sync-card"><h2>Cloud sync <span class="right muted">GitHub</span></h2>
+      <p class="muted small">Progress is saved in this browser only. Connect your GitHub account to also save it to a private Gist, so it follows you to any browser or device and survives clearing your browser data. Changes from different devices are merged item by item.</p>
+      <ol class="muted small steps">
+        <li><a href="${TOKEN_URL}" target="_blank" rel="noopener">Create a GitHub token</a> with only the <b>gist</b> scope ticked (the link pre-fills it). Choose "No expiration", or a date you'll remember to renew.</li>
+        <li>Paste it below and press Connect. Do the same on each device you use.</li>
+      </ol>
+      <div class="setting"><div class="label"><b>GitHub token</b><span>Stored only in this browser and sent only to api.github.com. It can only read and write your gists.</span></div>
+        <div><input type="password" id="sync-token" placeholder="ghp_…" autocomplete="off"> <button class="btn sm primary" id="sync-connect">Connect</button></div></div>
+      <p class="small" id="sync-msg"></p>
+    </div>`;
+  }
+  const info = syncInfo();
+  return `<div class="card" id="sync-card"><h2>Cloud sync <span class="right muted">GitHub</span></h2>
+    <div class="setting"><div class="label"><b>Connected as @${esc(info.login)}</b>
+      <span>Progress is saved to a <a href="https://gist.github.com/${esc(info.login)}/${esc(info.gistId)}" target="_blank" rel="noopener">private gist</a> and synced whenever it changes, when the app opens, and every few minutes.</span></div>
+      <div><button class="btn sm" id="sync-now">Sync now</button> <button class="btn sm danger" id="sync-off">Disconnect</button></div></div>
+    <p class="small" id="sync-msg"></p>
+  </div>`;
+}
+
+function syncStatusText() {
+  const st = getStatus();
+  const info = syncInfo();
+  const last = info && info.lastSync ? `Last synced ${fmtDate(info.lastSync)}.` : '';
+  const text = {
+    ok: `<span style="color:var(--correct)">✓ Synced.</span> ${last}`,
+    pending: 'Saving your latest progress…',
+    syncing: 'Syncing…',
+    offline: `<span style="color:var(--warn)">⚠ ${esc(st.message)}</span> ${last}`,
+    error: `<span style="color:var(--incorrect)">✗ ${esc(st.message)}</span>`,
+    idle: last,
+  }[st.state];
+  return text || '';
+}
 
 const sw = (id, on) => `<label class="switch"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span></span></label>`;
 
@@ -13,6 +55,8 @@ export function renderSettings(root) {
   const known = AI_MODELS.some((m) => m.id === s.ai.model);
   root.innerHTML = `
     <h1 class="page-title">Settings <span class="jp">設定</span></h1>
+
+    ${syncCardHTML()}
 
     <div class="card"><h2>Lessons & reviews</h2>
       <div class="setting"><div class="label"><b>Lesson batch size</b><span>How many new items to learn per lesson session (WaniKani default: 5).</span></div>
@@ -49,6 +93,37 @@ export function renderSettings(root) {
     <p class="muted small center">${ITEMS.length} grammar items across ${MAX_LEVEL} levels.</p>`;
 
   const $ = (id) => root.querySelector('#' + id);
+
+  // ---- cloud sync
+  const msg = () => root.querySelector('#sync-msg');
+  const showStatus = () => { if (msg() && isConnected()) msg().innerHTML = syncStatusText(); };
+  showStatus();
+  if (offPrevStatus) offPrevStatus();
+  const offStatus = onStatus(showStatus);
+  offPrevStatus = offStatus;
+  if ($('sync-connect')) {
+    const go = async () => {
+      const btn = $('sync-connect');
+      btn.disabled = true;
+      msg().textContent = 'Connecting…';
+      try {
+        const r = await connect($('sync-token').value);
+        toast(r.mergedWithCloud ? `Connected as @${r.login} — merged with your cloud save.` : `Connected as @${r.login} — progress saved to the cloud.`, 4000);
+        renderSettings(root);
+      } catch (e) {
+        msg().innerHTML = `<span style="color:var(--incorrect)">✗ ${esc(e.message)}</span>`;
+        btn.disabled = false;
+      }
+    };
+    $('sync-connect').addEventListener('click', go);
+    $('sync-token').addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+  }
+  if ($('sync-now')) $('sync-now').addEventListener('click', () => syncNow());
+  if ($('sync-off')) $('sync-off').addEventListener('click', () => {
+    if (!confirm('Disconnect cloud sync on this device? Your progress stays here and in the gist; this device just stops syncing.')) return;
+    disconnect();
+    renderSettings(root);
+  });
   const bindSwitch = (id, key) => $(id).addEventListener('change', (e) => saveSettings({ [key]: e.target.checked }));
   $('batch').addEventListener('change', (e) => saveSettings({ lessonBatchSize: Math.max(1, Math.min(20, +e.target.value || 5)) }));
   $('order').addEventListener('change', (e) => saveSettings({ reviewOrder: e.target.value }));
@@ -106,10 +181,11 @@ export function renderSettings(root) {
     } catch (err) { alert(err.message); }
   });
   $('reset').addEventListener('click', () => {
-    if (!confirm('Reset ALL progress and start again from level 1? This cannot be undone.')) return;
+    if (!confirm(`Reset ALL progress and start again from level 1?${isConnected() ? ' This also resets your cloud save and every synced device.' : ''} This cannot be undone.`)) return;
     if (!confirm('Are you absolutely sure?')) return;
     resetProgress();
     toast('Progress reset.');
     renderSettings(root);
   });
+  return offStatus;
 }

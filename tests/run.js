@@ -9,6 +9,7 @@ import { ITEMS, BY_ID, MAX_LEVEL } from '../js/data/index.js';
 import { createChecker, parseSpec } from '../js/checker.js';
 import { NEGATIVE, POSITIVE, WORD_CASES } from './cases.js';
 import { runSrsTests } from './srs.test.js';
+import { runMergeTests } from './merge.test.js';
 
 const require = createRequire(import.meta.url);
 const dicPath = path.join(path.dirname(require.resolve('kuromoji/package.json')), 'dict');
@@ -96,6 +97,7 @@ for (const [id, s] of POSITIVE) {
 
 // ---------- 4. SRS
 failures += runSrsTests();
+failures += runMergeTests();
 
 console.log(`\n${ITEMS.length} items, ${n} example sentences checked, ${NEGATIVE.length} negative + ${POSITIVE.length} positive cases.`);
 console.log(failures ? `${failures} failure(s)` : 'All tests passed.');

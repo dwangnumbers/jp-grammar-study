@@ -70,6 +70,13 @@ kbd { font-family: var(--ui); font-size: .78em; background: var(--surface-3); bo
 .pill.reviews { background: var(--particle); }
 .pill.level { background: var(--surface-3); color: var(--text); }
 .pill .n { background: rgba(0, 0, 0, .25); border-radius: 99px; padding: 0 7px; min-width: 22px; text-align: center; }
+.sync-badge { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 15px; color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); }
+.sync-badge:hover { text-decoration: none; color: var(--text); }
+.sync-badge.s-ok { color: var(--correct); }
+.sync-badge.s-pending, .sync-badge.s-syncing { color: var(--particle); animation: pulse 1.2s ease-in-out infinite; }
+.sync-badge.s-offline { color: var(--warn); }
+.sync-badge.s-error { color: var(--incorrect); border-color: var(--incorrect); }
+@keyframes pulse { 50% { opacity: .4; } }
 .search-form input { background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 5px 12px; width: 150px; font-size: 14px; }
 .search-form input:focus { outline: none; border-color: var(--particle); width: 190px; }
 
@@ -309,6 +316,7 @@ body.in-session main { max-width: none; padding: 0; }
 .setting .label b { display: block; }
 .setting .label span { color: var(--muted); font-size: 14px; }
 .setting input[type=text], .setting input[type=password], .setting input[type=number], .setting select { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 7px 10px; min-width: 220px; }
+.steps { margin: 6px 0 4px; padding-left: 20px; line-height: 1.7; }
 .switch { position: relative; width: 44px; height: 24px; flex: none; }
 .switch input { opacity: 0; width: 0; height: 0; }
 .switch span { position: absolute; inset: 0; background: var(--surface-3); border-radius: 99px; transition: .2s; cursor: pointer; }

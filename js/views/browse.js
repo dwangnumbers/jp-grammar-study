@@ -111,7 +111,7 @@ export function renderItem(root, id) {
     ${p ? `<div class="section notes"><h3>Notes</h3><textarea id="note" placeholder="Add your own notes, mnemonics, or example sentences…">${esc(p.note || '')}</textarea></div>` : ''}`;
   bindSpeak(root);
   const note = root.querySelector('#note');
-  if (note) note.addEventListener('change', () => { p.note = note.value; save(); toast('Note saved'); });
+  if (note) note.addEventListener('change', () => { p.note = note.value; p.t = Date.now(); save(); toast('Note saved'); });
   const r = root.querySelector('#resurrect');
   if (r) r.addEventListener('click', () => { resurrect(state, item.id); save(); renderItem(root, id); toast('Resurrected'); });
 }

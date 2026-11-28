@@ -1,5 +1,6 @@
 // Persistence: progress and settings live in localStorage on this device.
-// Use Settings → Export to back up or move your progress.
+// Cloud sync (js/sync.js) keeps progress in a private GitHub Gist as well,
+// and Settings → Export makes a backup file.
 import { newState, refresh } from './srs.js';
 import { BY_ID } from './data/index.js';
 
@@ -20,6 +21,7 @@ export const DEFAULT_SETTINGS = {
 let state = null;
 let settings = null;
 const listeners = new Set();
+const stateListeners = new Set(); // called only when progress changes
 
 function safeParse(s) { try { return JSON.parse(s); } catch { return null; } }
 
@@ -34,12 +36,22 @@ export function getState() {
   return state;
 }
 
-export function save() {
+export function save({ fromSync = false } = {}) {
   try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch (e) { console.error('Could not save progress', e); }
   listeners.forEach((fn) => fn());
+  if (!fromSync) stateListeners.forEach((fn) => fn());
 }
 
 export function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+export function onStateChange(fn) { stateListeners.add(fn); return () => stateListeners.delete(fn); }
+
+// Used by cloud sync after merging in progress from another device.
+export function replaceState(next) {
+  state = next;
+  for (const id of Object.keys(state.items)) if (!BY_ID.has(id)) delete state.items[id];
+  refresh(state);
+  save({ fromSync: true });
+}
 
 export function getSettings() {
   if (!settings) {
@@ -65,6 +77,7 @@ export function importData(text) {
   const data = JSON.parse(text);
   if (!data || data.app !== 'jp-grammar-study' || !data.state || !data.state.items) throw new Error('This is not a JP Grammar Study backup file.');
   state = data.state;
+  state.epoch = Date.now(); // the imported progress replaces what's in the cloud
   refresh(state);
   save();
   if (data.settings) saveSettings({ ...data.settings, ai: { ...data.settings.ai, apiKey: getSettings().ai.apiKey } });

@@ -330,6 +330,7 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
     if (last && last.text === text && Date.now() - last.at < 60000) last.ok = ok;
     else p.sentences.push({ text, ok, at: Date.now() });
     if (p.sentences.length > 30) p.sentences.splice(0, p.sentences.length - 30);
+    p.t = Date.now();
   }
 
   function override() {

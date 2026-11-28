@@ -55,6 +55,10 @@ export function newState(now = Date.now()) {
   return {
     version: 1,
     createdAt: now,
+    // A new epoch starts whenever progress is reset or rewritten (reset, level
+    // change, import). Cloud sync merges states of the same epoch item by item;
+    // otherwise the newer epoch wins.
+    epoch: now,
     level: 1,
     levels: { 1: { unlockedAt: now } },
     items: {},
@@ -100,7 +104,7 @@ export function refresh(state, now = Date.now()) {
     if (it.level > state.level) break;
     if (state.items[it.id]) continue;
     if (isUnlocked(state, it)) {
-      state.items[it.id] = { stage: 0, unlockedAt: now, correct: 0, incorrect: 0, streak: 0, maxStreak: 0 };
+      state.items[it.id] = { stage: 0, unlockedAt: now, correct: 0, incorrect: 0, streak: 0, maxStreak: 0, t: now };
       unlocked.push(it.id);
     }
   }
@@ -125,6 +129,7 @@ export function startItem(state, id, now = Date.now()) {
   if (!p || p.stage !== 0) return;
   p.stage = 1;
   p.startedAt = now;
+  p.t = now;
   p.availableAt = nextReviewAt(1, it.level, now);
 }
 
@@ -138,6 +143,7 @@ export function applyReview(state, id, incorrect, now = Date.now()) {
   const to = stageAfter(from, incorrect);
   p.stage = to;
   p.lastReviewedAt = now;
+  p.t = now;
   if (incorrect) { p.incorrect += incorrect; p.streak = 0; } else { p.streak++; p.maxStreak = Math.max(p.maxStreak, p.streak); }
   p.correct++;
   if (to >= GURU && !p.passedAt) p.passedAt = now;
@@ -151,7 +157,7 @@ export function resurrect(state, id, now = Date.now()) {
   const p = state.items[id];
   if (!p || p.stage !== BURNED) return;
   const it = BY_ID.get(id);
-  p.stage = 1; p.burnedAt = null; p.availableAt = nextReviewAt(1, it.level, now);
+  p.stage = 1; p.burnedAt = null; p.availableAt = nextReviewAt(1, it.level, now); p.t = now;
 }
 
 export function accuracy(p) {
@@ -186,6 +192,7 @@ export function srsCounts(state) {
 // ahead). Progress on items above the new level is cleared.
 export function setLevel(state, level, now = Date.now()) {
   level = Math.max(1, Math.min(MAX_LEVEL, level));
+  state.epoch = now;
   for (const it of ITEMS) if (it.level > level) delete state.items[it.id];
   for (const l of Object.keys(state.levels)) if (+l > level) delete state.levels[l];
   state.level = level;
@@ -193,7 +200,7 @@ export function setLevel(state, level, now = Date.now()) {
   // when skipping ahead, everything below counts as unlocked
   for (const it of ITEMS) {
     if (it.level > level) break;
-    if (!state.items[it.id]) state.items[it.id] = { stage: 0, unlockedAt: now, correct: 0, incorrect: 0, streak: 0, maxStreak: 0 };
+    if (!state.items[it.id]) state.items[it.id] = { stage: 0, unlockedAt: now, correct: 0, incorrect: 0, streak: 0, maxStreak: 0, t: now };
   }
   delete state.levels[level].passedAt;
 }

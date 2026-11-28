@@ -99,16 +99,7 @@ setInterval(() => {
 // Load the analyzer in the background; re-render pages that show example
 // sentences so they get furigana and grammar highlighting.
 onCheckerReady(() => {
-  if (!inSession && currentRoute.startsWith('item')) // Cloud sync: when progress arrives from another device, redraw the page
-// (sessions keep going and pick it up as they move on).
-onStatus(updateHeader);
-onApplied(() => {
-  if (!inSession && currentRoute !== 'settings') route();
-  else updateHeader();
-});
-initSync();
-
-route();
+  if (!inSession && currentRoute.startsWith('item')) route();
 });
 loadChecker().catch(() => toast('Could not load the Japanese analyzer — check your connection.'));
 

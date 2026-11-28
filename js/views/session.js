@@ -8,6 +8,7 @@ import { gradeWithAI } from '../ai.js';
 import { speak, canSpeak } from '../speech.js';
 import { detailSections, bindSpeak, tile, STAGE_COLORS, TYPE_COLORS, renderJa, partsHTML, examplesHTML } from './common.js';
 import { recentMistakes } from './dashboard.js';
+import { nextContext } from '../contexts.js';
 
 const TRIVIAL_SHAKES = new Set(['empty', 'latin', 'notjp', 'copy', 'bare', 'short', 'word', 'class']);
 
@@ -163,6 +164,7 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
   let answers = 0;
   let correctAnswers = 0;
   let current = null;
+  let ctx = null; // the context shown for the current item
   let phase = 'answer'; // answer | grading | correct | incorrect
   let lastResult = null;
   let showInfo = false;
@@ -247,9 +249,11 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
     $('variant').textContent = it.variant || '';
     $('variant').classList.toggle('hidden', !it.variant);
     $('lvl').textContent = `Level ${it.level}`;
-    const pr = it.prompt;
+    ctx = nextContext(getState(), it);
+    save();
+    const pr = ctx;
     $('prompt').innerHTML = `${TYPES[it.type].label} <b>${pr && pr.kind === 'passage' ? 'Fill in the blank' : 'Reply'}</b>`;
-    $('context').innerHTML = contextHTML(it);
+    $('context').innerHTML = contextHTML(pr);
     input.placeholder = pr && pr.kind === 'passage' ? 'Write the missing sentence…' : 'Write your reply…';
     input.value = '';
     input.readOnly = false;
@@ -269,7 +273,7 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
     const text = input.value.trim();
     const item = current;
     const checker = getChecker();
-    let res = checker.check(item, text, { allowCopies: settings.allowExampleCopies, words: item.prompt ? item.prompt.words : [] });
+    let res = checker.check(item, text, { allowCopies: settings.allowExampleCopies, words: ctx ? ctx.words : [] });
     let source = 'local';
     const useAI = settings.ai.enabled && settings.ai.apiKey;
     if (useAI && !(res.status === 'shake' && TRIVIAL_SHAKES.has(res.code))) {
@@ -279,7 +283,7 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
       $('status').innerHTML = '<span class="spinner"></span>Claude is grading your sentence…';
       try {
         aborter = new AbortController();
-        const ai = await gradeWithAI({ apiKey: settings.ai.apiKey, model: settings.ai.model, item, prompt: item.prompt, sentence: text, signal: aborter.signal });
+        const ai = await gradeWithAI({ apiKey: settings.ai.apiKey, model: settings.ai.model, item, prompt: ctx, sentence: text, signal: aborter.signal });
         if (current !== item) return;
         source = 'ai';
         res = { status: ai.verdict === 'missing' ? 'shake' : ai.verdict, message: ai.feedback, correction: ai.correction, local: res };
@@ -355,7 +359,7 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
     qi.innerHTML = `
       <div class="item-header"><div class="big ${current.type}" lang="ja">${esc(current.grammar)}${current.variant ? `<span class="v">${esc(current.variant)}</span>` : ''}</div>
         <div><div class="title">${esc(current.meaning)}</div><div class="sub"><a href="#/item/${esc(current.id)}" target="_blank">Open item page ↗</a></div></div></div>
-      ${current.prompt ? `<div class="section"><h3>Example answer</h3><div class="example"><span></span><div class="ja answer-echo" lang="ja" style="--hl:${TYPE_COLORS[current.type]}">${renderJa(current.prompt.answer, current)}</div></div></div>` : ''}
+      ${ctx ? `<div class="section"><h3>Example answer</h3><div class="example"><span></span><div class="ja answer-echo" lang="ja" style="--hl:${TYPE_COLORS[current.type]}">${renderJa(ctx.answer, current)}</div></div></div>` : ''}
       ${lastResult && lastResult.text ? `<div class="section"><h3>Your answer</h3><div class="example"><span></span><div class="ja answer-echo" lang="ja" style="--hl:${TYPE_COLORS[current.type]}">${renderJa(lastResult.text, current, { furigana: false })}</div></div></div>` : ''}
       ${detailSections(st, current, { which: ['meaning', 'pronunciation', 'examples', 'parts'] })}`;
     bindSpeak(qi);
@@ -433,8 +437,7 @@ function runSession(root, { mode, title, ids, keepOrder, onComplete }) {
 }
 
 // ---------------------------------------------------------------- review context
-function contextHTML(item) {
-  const pr = item.prompt;
+function contextHTML(pr) {
   if (!pr) return '';
   const ja = (t) => renderJa(t, null, { highlight: false });
   const words = `<div class="ctx-words">Use: ${pr.words.map((w) => `<span class="word" lang="ja">${esc(w.split('|')[0])}</span>`).join('')}</div>`;

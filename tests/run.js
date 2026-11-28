@@ -6,10 +6,12 @@ import { createRequire } from 'module';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { ITEMS, BY_ID, MAX_LEVEL } from '../js/data/index.js';
+import MORE from '../js/data/more/index.js';
 import { createChecker, parseSpec } from '../js/checker.js';
 import { NEGATIVE, POSITIVE, WORD_CASES } from './cases.js';
 import { runSrsTests } from './srs.test.js';
 import { runMergeTests } from './merge.test.js';
+import { runContextTests } from './contexts.test.js';
 
 const require = createRequire(import.meta.url);
 const dicPath = path.join(path.dirname(require.resolve('kuromoji/package.json')), 'dict');
@@ -67,9 +69,17 @@ for (const it of ITEMS.filter(inRange)) {
   }
 }
 // review prompts: every item has one, and its model answer passes
+for (const id of Object.keys(MORE)) if (!BY_ID.has(id)) fail(`extra contexts for unknown item id: ${id}`);
+let nPrompts = 0;
+const MIN_CONTEXTS = Number(process.env.MIN_CONTEXTS || 9);
 for (const it of ITEMS.filter(inRange)) {
-  const pr = it.prompt;
-  if (!pr) { fail(`L${it.level} ${it.id}: no review prompt`); continue; }
+  if (!it.prompts.length) { fail(`L${it.level} ${it.id}: no review prompt`); continue; }
+  if (it.prompts.length < MIN_CONTEXTS) fail(`L${it.level} ${it.id}: only ${it.prompts.length} contexts (need ${MIN_CONTEXTS})`);
+  const answers = new Set();
+  for (const pr of it.prompts) {
+  nPrompts++;
+  if (answers.has(pr.answer)) fail(`${it.id}: duplicate sample answer ${pr.answer}`);
+  answers.add(pr.answer);
   for (const k of ['scene', 'task', 'answer']) if (!pr[k]) fail(`${it.id}: prompt missing ${k}`);
   if (!pr.words.length) fail(`${it.id}: prompt has no required words`);
   if (pr.kind === 'passage') {
@@ -78,6 +88,7 @@ for (const it of ITEMS.filter(inRange)) {
   } else if (!pr.lines.length || pr.lines.some((l) => !l.who || !l.ja || !l.en)) fail(`${it.id}: bad dialogue lines`);
   const r = checker.check(it, pr.answer, { allowCopies: true, words: pr.words });
   if (r.status !== 'correct') fail(`L${it.level} ${it.id} model answer rejected (${r.status}): ${pr.answer}\n    ${r.message}\n    ${dump(r.tokens || checker.tokenize(pr.answer))}`);
+  }
 }
 for (const [id, s, want] of NEGATIVE) {
   const it = BY_ID.get(id); if (!it || !inRange(it)) continue;
@@ -98,7 +109,8 @@ for (const [id, s] of POSITIVE) {
 // ---------- 4. SRS
 failures += runSrsTests();
 failures += runMergeTests();
+failures += runContextTests();
 
-console.log(`\n${ITEMS.length} items, ${n} example sentences checked, ${NEGATIVE.length} negative + ${POSITIVE.length} positive cases.`);
+console.log(`\n${ITEMS.length} items, ${nPrompts} review contexts, ${n} example sentences checked, ${NEGATIVE.length} negative + ${POSITIVE.length} positive cases.`);
 console.log(failures ? `${failures} failure(s)` : 'All tests passed.');
 process.exit(failures ? 1 : 0);

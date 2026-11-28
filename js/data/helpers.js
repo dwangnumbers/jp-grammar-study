@@ -29,7 +29,10 @@ export const Ph = make('phrase');
 // `words` is a space-separated list of words that must appear in the answer, in
 // any conjugation, in kanji or kana. Use | for alternatives (いい|良い).
 const wordList = (w) => w.split(/\s+/).filter(Boolean);
+// Lines can also be written compactly as 'Speaker|日本語|English', with
+// several lines separated by '||'.
+const lineList = (lines) => (typeof lines === 'string' ? lines.split('||').map((l) => l.split('|')) : lines);
 export const D = (scene, lines, task, words, answer) => ({
-  kind: 'dialogue', scene, lines: lines.map(([who, ja, en]) => ({ who, ja, en })), task, words: wordList(words), answer,
+  kind: 'dialogue', scene, lines: lineList(lines).map(([who, ja, en]) => ({ who, ja, en })), task, words: wordList(words), answer,
 });
 export const Pa = (scene, ja, en, task, words, answer) => ({ kind: 'passage', scene, ja, en, task, words: wordList(words), answer });

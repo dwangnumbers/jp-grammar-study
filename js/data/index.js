@@ -11,6 +11,8 @@ import prompts4 from './prompts4.js';
 import prompts5 from './prompts5.js';
 import prompts6 from './prompts6.js';
 
+import more from './more/index.js';
+
 export const PROMPTS = { ...prompts1, ...prompts2, ...prompts3, ...prompts4, ...prompts5, ...prompts6 };
 
 // WaniKani-style level groups
@@ -34,7 +36,10 @@ export const MAX_LEVEL = 60;
 export const ITEMS = [];
 for (const stage of [stage1, stage2, stage3, stage4, stage5, stage6]) {
   for (const [level, items] of Object.entries(stage)) {
-    items.forEach((it, i) => ITEMS.push({ ...it, level: Number(level), order: i, prompt: PROMPTS[it.id] || null }));
+    items.forEach((it, i) => {
+      const prompts = [PROMPTS[it.id], ...(more[it.id] || [])].filter(Boolean);
+      ITEMS.push({ ...it, level: Number(level), order: i, prompts, prompt: prompts[0] || null });
+    });
   }
 }
 ITEMS.sort((a, b) => a.level - b.level || TYPES[a.type].order - TYPES[b.type].order || a.order - b.order);

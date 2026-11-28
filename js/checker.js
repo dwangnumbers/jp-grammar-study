@@ -87,8 +87,9 @@ export const CLASSES = {
 // traces it back to its godan verb.
 export function verbClass(t) {
   if (!isVerb(t)) return null;
-  // IPADIC sometimes tags 来ら (来られる) as a godan verb; 来る is always irregular
-  if (t.basic_form === '来る' && /^来/.test(t.surface_form)) return 'i';
+  // IPADIC sometimes tags 来ら (来られる) as a godan verb, and splits 来させる as
+  // 来す + せる; 来る is always irregular
+  if ((t.basic_form === '来る' || t.basic_form === '来す') && /^来/.test(t.surface_form)) return 'i';
   const ct = t.conjugated_type || '';
   if (/^五段/.test(ct)) return 'g';
   if (/一段|サ変|カ変/.test(ct)) return 'i';
@@ -335,8 +336,9 @@ export function findGeneralErrors(tokens) {
           errs.push(`「${prev.basic_form}」 takes ${voiced ? 'で/だ' : 'て/た'} in its て/た-form, not 「${s}」.`);
       }
     }
-    // 高いだ
-    if (isAux(t) && t.basic_form === 'だ' && form(t) === '基本形' && isAdj(prev) && form(prev) === '基本形' && !(next && next.pos === '助詞'))
+    // 高いだ (but not the listing particle だの, which IPADIC sometimes splits as だ + の)
+    const isDano = next && next.surface_form === 'の' && next.pos === '名詞';
+    if (isAux(t) && t.basic_form === 'だ' && form(t) === '基本形' && isAdj(prev) && form(prev) === '基本形' && !(next && next.pos === '助詞') && !isDano)
       errs.push(`い-adjectives don't take だ: 「${prev.surface_form}だ」 → just 「${prev.surface_form}」.`);
     // 行くです / 行くでした
     if (isAux(t) && t.basic_form === 'です' && !/^未然/.test(form(t)) && isVerb(prev) && form(prev) === '基本形')

@@ -39,12 +39,14 @@ The parts of WaniKani that are copied directly:
 
 ## Reviews
 
-Every item has a context in one of two forms:
+Every item has a pool of nine contexts, about 3,600 in all. Each context takes one of two forms:
 
 - **Conversation.** A scene and someone's line, for example a friend asking 「明日、何時に起きますか。」. You write your reply.
 - **Passage.** A short text such as a diary, news story, letter or classical tale, with one missing sentence. You write that sentence.
 
 Each context comes with a task in English, such as *"Say you will get up at six."*, and **required words** to use, such as 六時 and 起きる. Required words count in any conjugation, in kanji or kana, and in classical forms like 忘る. After you answer, the item info shows a sample answer.
+
+**A different context every time.** Each time an item comes up, whether in the lesson quiz, a review, a retry after a wrong answer or extra study, it shows the next context in its pool. Every item walks through its own shuffled order, so a context comes back only after you have seen all the others. Nine contexts cover the lesson quiz and all eight reviews up to Burned, unless you answer wrong or do extra study. The position in the rotation is saved with your progress and syncs between devices.
 
 ## How answers are graded
 
@@ -106,7 +108,8 @@ The test suite checks the following:
 
 - **Curriculum integrity.** IDs are unique, every part exists at the same level or lower, there are no dependency cycles, and every level has conjugations.
 - **Examples.** All 804 example sentences pass their own item's checker.
-- **Review contexts.** Every item has one, and every sample answer passes both the grammar check and the required-word check.
+- **Review contexts.** Every item has at least nine, no item repeats a sample answer, and every sample answer passes both the grammar check and the required-word check.
+- **Context rotation.** Any run of reviews as long as an item's pool shows each of its contexts once, and the same context never appears twice in a row.
 - **Checker cases.** Hand-written correct sentences must be accepted and incorrect ones rejected.
 - **Sync merging.** Progress from two devices combines item by item, resets propagate, and a newly connected device never overwrites real progress.
 - **SRS engine.** The penalty math, intervals and hour rounding behave like WaniKani's. A simulated perfect run reaches level 60, and every item eventually unlocks.
@@ -125,7 +128,9 @@ js/merge.js           merges progress from two devices
 js/checker.js         sentence checker (spec DSL documented at the top of the file)
 js/ai.js              optional Claude grading
 js/data/stage1–6.js   the curriculum, 10 levels per file
-js/data/prompts1–6.js review contexts (conversations / passages), keyed by item id
+js/data/prompts1–6.js first review context of each item (conversations / passages), keyed by item id
+js/data/more/         eight more contexts per item, five levels per file
+js/contexts.js        picks the next context in an item's rotation
 js/views/             dashboard, lessons/reviews, browsing, settings
 vendor/               kuromoji (Apache-2.0, IPADIC data) and WanaKana (MIT)
 tests/                node test suite
@@ -145,7 +150,7 @@ Ph({ id: 'te-mo-ii', grammar: '〜てもいい', meaning: "It's okay to …; may
      check: ['(て|で)も(いい|良い|…)@Vt,A,N'] })       // checker spec
 ```
 
-Each item also needs a review context in `js/data/promptsN.js`:
+Each item also needs a review context in `js/data/promptsN.js`, and eight more in a list under the same id in `js/data/more/`:
 
 ```js
 'te-mo-ii': D("Visiting a friend's home for the first time.",

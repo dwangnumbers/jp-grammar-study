@@ -62,15 +62,15 @@ export default {
       examples: [['その話を聞いて、泣かずにはいられなかった。', "Hearing that story, I couldn't help crying."], ['彼の失敗を見ると、笑わずにはいられない。', "When I see his blunders, I can't help but laugh."]],
       parts: ['zuni', 'potential'], check: ['ずにはいられ@Vn'] }),
     Ph({ id: 'te-tamaranai', grammar: '〜てたまらない', meaning: 'Unbearably, extremely (feeling)', reading: 'てたまらない', romaji: 'te tamaranai',
-      structure: 'Adjective / Verb (feeling) (て-form) + たまらない',
+      structure: 'Adjective / Verb (feeling) (て-form) + たまらない; な-adjective + で + たまらない',
       explain: 'A feeling so strong you can\'t stand it: 暑くてたまらない (unbearably hot), 会いたくてたまらない (dying to see someone).',
       examples: [['今日は暑くてたまらない。', "It's unbearably hot today."], ['家族に会いたくてたまらない。', "I'm dying to see my family."]],
-      parts: ['kute'], check: ['(て|で)(たまら|堪ら|たまりませ)@Vt,A,Aux'] }),
+      parts: ['kute'], check: ['(て|で)(たまら|堪ら|たまりませ)@Vt,A,Aux,Na,Ns'] }),
     Ph({ id: 'te-naranai', grammar: '〜てならない', meaning: 'Can\'t help feeling …', reading: 'てならない', romaji: 'te naranai',
-      structure: 'Adjective / Verb (feeling) (て-form) + ならない',
+      structure: 'Adjective / Verb (feeling) (て-form) + ならない; な-adjective + で + ならない',
       explain: 'Similar to 〜てたまらない but more formal, and used for feelings that arise spontaneously: 気になってならない (it keeps bothering me).',
       examples: [['試験の結果が気になってならない。', "I can't stop worrying about the exam results."], ['故郷が懐かしく思われてならない。', "I can't help feeling nostalgic for my hometown."]],
-      parts: ['kute'], check: ['(て|で)(なら|なりませ)(ない|ん|なかっ)@Vt,A,Aux'] }),
+      parts: ['kute'], check: ['(て|で)(なら|なりませ)(ない|ん|なかっ)@Vt,A,Aux,Na,Ns'] }),
   ],
 
   33: [
@@ -250,7 +250,7 @@ export default {
       structure: 'Verb (ます-stem) + 合う   話し合う, 助け合う',
       explain: 'Makes the action mutual: 助け合う (help each other), 話し合う (discuss together).',
       examples: [['問題について、みんなで話し合った。', 'We all discussed the problem together.'], ['困った時は助け合いましょう。', "Let's help each other when we're in trouble."]],
-      check: ['合(う|い|っ|わ|え)@Vm,V'] }),
+      check: ['合(う|い|っ|わ|え|お)@Vm,V'] }),
   ],
 
   38: [
